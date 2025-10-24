@@ -1,10 +1,36 @@
+import { createBrowserRouter, RouterProvider } from "react-router-dom";
+import DashboardPage from "./pages/DashboardPage";
+import CreatePage from "./pages/CreatePage";
+import ChatPage from "./pages/ChatPage";
+import HomePage from "./pages/HomePage";
+import { Toaster } from "./components/ui/sonner";
+
 function App() {
 
+  const router = createBrowserRouter([
+    {
+    path: "/",
+    element: <HomePage />, // <-- '/' is now the new home page
+  },
+  {
+    path: "/dashboard",
+    element: <DashboardPage />,
+  },
+  {
+    path: "/create",
+    element: <CreatePage />,
+  },
+  {
+    // We will pass the persona's ID in the URL
+    path: "/chat/:personaId",
+    element: <ChatPage />,
+  },
+]);
+
   return (
-    <div className="flex items-center justify-center min-h-screen bg-slate-900 text-white">
-      <h1 className="text-3xl font-bold">
-        Persona Hub - Day 1 Setup Complete!
-      </h1>
+    <div className="min-h-screen bg-slate-900 text-slate-50">
+      <RouterProvider router={router} />
+      <Toaster richColors theme="dark" />
     </div>
   )
 }
