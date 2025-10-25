@@ -1,37 +1,98 @@
 // src/lib/usePersonas.ts
-import type { Persona } from '@/lib/types';
-import { useState, useEffect } from 'react';
+import type { Conversation, Message, Persona } from '@/lib/types';
+import { useState, useEffect, useCallback } from 'react';
 
 // This is our key for localStorage
-const STORAGE_KEY = 'swa-ai-personas';
+const PERSONAS_STORAGE_KEY = 'swa-ai-personas';
+const CONVERSATIONS_STORAGE_KEY = 'swa-ai-conversations';
 
 export function usePersonas() {
-  // This state will hold our array of personas
   const [personas, setPersonas] = useState<Persona[]>([]);
+  const [conversations, setConversations] = useState<Conversation[]>([]);
 
   // On load, read personas from localStorage
   useEffect(() => {
     try {
-      const storedData = window.localStorage.getItem(STORAGE_KEY);
-      if (storedData) {
-        setPersonas(JSON.parse(storedData));
+      const storedPersonas = window.localStorage.getItem(PERSONAS_STORAGE_KEY);
+      if (storedPersonas) {
+        setPersonas(JSON.parse(storedPersonas));
+      }
+      const storedConvos = window.localStorage.getItem(CONVERSATIONS_STORAGE_KEY);
+      if (storedConvos) {
+        setConversations(JSON.parse(storedConvos));
       }
     } catch (error) {
-      console.error("Failed to parse personas from localStorage", error);
+      console.error("Failed to parse data from localStorage", error);
     }
   }, []);
 
-  // Function to add a new persona
-  const addPersona = (persona: Persona) => {
-    const newPersonas = [...personas, persona];
-    setPersonas(newPersonas);
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(newPersonas));
-  };
+  // --- Persona Management ---
+  const addPersona = useCallback((persona: Persona) => {
+    setPersonas(prev => {
+      const newPersonas = [...prev, persona];
+      window.localStorage.setItem(PERSONAS_STORAGE_KEY, JSON.stringify(newPersonas));
+      return newPersonas;
+    });
+  }, []);
 
-  // Function to get a single persona by its ID
-  const getPersona = (id: string) => {
+  const getPersona = useCallback((id: string): Persona | undefined => {
     return personas.find(p => p.id === id);
-  };
+  }, [personas]);
 
-  return { personas, addPersona, getPersona };
+  const personaExists = useCallback((id: string): boolean => {
+     return personas.some(p => p.id === id);
+  }, [personas]);
+
+  // --- Conversation Management ---
+  const getConversationsForPersona = useCallback((personaId: string): Conversation[] => {
+    return conversations
+      .filter(c => c.personaId === personaId)
+      .sort((a, b) => b.lastEdited - a.lastEdited); // Sort newest first
+  }, [conversations]);
+
+  const getConversation = useCallback((convoId: string): Conversation | undefined => {
+    return conversations.find(c => c.id === convoId);
+  }, [conversations]);
+
+  const saveConversation = useCallback((conversation: Conversation) => {
+    setConversations(prev => {
+      const existingIndex = prev.findIndex(c => c.id === conversation.id);
+      let newConversations;
+      if (existingIndex > -1) {
+        // Update existing conversation
+        newConversations = [...prev];
+        newConversations[existingIndex] = conversation;
+      } else {
+        // Add new conversation
+        newConversations = [...prev, conversation];
+      }
+      window.localStorage.setItem(CONVERSATIONS_STORAGE_KEY, JSON.stringify(newConversations));
+      return newConversations;
+    });
+  }, []);
+
+  const createNewConversation = useCallback((personaId: string, firstMessage: Message): Conversation => {
+     const newConversation: Conversation = {
+       id: crypto.randomUUID(),
+       personaId: personaId,
+       title: "New Chat", // We'll update this later with AI
+       messages: [firstMessage],
+       lastEdited: Date.now(),
+     };
+     saveConversation(newConversation);
+     return newConversation;
+  }, [saveConversation]);
+
+  // --- Combined Hook Return ---
+  return {
+    personas,
+    addPersona,
+    getPersona,
+    personaExists, // <-- New helper
+    conversations,
+    getConversationsForPersona,
+    getConversation,
+    saveConversation,
+    createNewConversation,
+  };
 }
