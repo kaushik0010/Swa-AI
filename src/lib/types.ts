@@ -1,11 +1,13 @@
+import type z from "zod";
+import type { PersonaTypeEnum } from "./schemas";
+
 // src/lib/types.ts
 export interface Persona {
   id: string;
   name: string;
   description: string;
   systemPrompt: string;
-  // This will be 'text' or 'multimodal'
-  type: 'text' | 'multimodal'; 
+  type: z.infer<typeof PersonaTypeEnum>; 
 }
 
 export interface Message {

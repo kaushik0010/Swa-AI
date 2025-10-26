@@ -5,9 +5,35 @@ import { usePersonas } from "@/hooks/usePersonas";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Footer } from "@/components/layout/Footer";
 import { Navbar } from "@/components/layout/Navbar";
+import { PREBUILT_PERSONAS } from "@/lib/prebuilt-personas";
+import type { Persona } from "@/lib/types";
+import { useState } from "react";
+import { Trash2 } from "lucide-react";
+import { ConfirmationDialog } from "@/components/ui/ConfirmationDialog";
 
 export default function DashboardPage() {
-  const { personas } = usePersonas();
+  const { personas, deletePersona } = usePersonas();
+
+  const [isConfirmOpen, setIsConfirmOpen] = useState(false);
+  const [personaToDelete, setPersonaToDelete] = useState<Persona | null>(null);
+
+  const handleDeleteClick = (e: React.MouseEvent, persona: Persona) => {
+    e.preventDefault(); // Prevent link navigation
+    e.stopPropagation(); // Prevent card click
+    setPersonaToDelete(persona);
+    setIsConfirmOpen(true);
+  };
+
+  const handleConfirmDelete = () => {
+    if (personaToDelete) {
+      deletePersona(personaToDelete.id);
+      setPersonaToDelete(null);
+    }
+    setIsConfirmOpen(false);
+  };
+
+  // Filter out pre-built persona placeholders if they exist in custom list
+  const customPersonas = personas.filter(p => !PREBUILT_PERSONAS.some(pre => pre.id === p.id));
 
   return (
     <>
@@ -22,16 +48,27 @@ export default function DashboardPage() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {/* ... (map logic is the same) ... */}
-            {personas.map((persona) => (
-              <Link to={`/chat/${persona.id}`} key={persona.id}>
-                <Card className="bg-slate-800 border-slate-700 hover:bg-slate-700">
-                  <CardHeader>
-                    <CardTitle className="text-slate-50">{persona.name}</CardTitle>
-                    <CardDescription>{persona.description}</CardDescription>
-                  </CardHeader>
-                </Card>
-              </Link>
+            {customPersonas.map((persona) => ( // Use filtered list
+              <div key={persona.id} className="relative group"> {/* Added relative container */}
+                <Link to={`/chat/${persona.id}`}>
+                  <Card className="bg-slate-800 border-slate-700 hover:bg-slate-700 h-full"> {/* Ensure cards are same height */}
+                    <CardHeader>
+                      <CardTitle className="text-slate-50">{persona.name}</CardTitle>
+                      <CardDescription>{persona.description}</CardDescription>
+                    </CardHeader>
+                  </Card>
+                </Link>
+                {/* Delete Button - Positioned top-right */}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="absolute top-2 right-2 text-slate-500 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity" // Show on hover
+                  onClick={(e) => handleDeleteClick(e, persona)}
+                  aria-label={`Delete ${persona.name}`}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
             ))}
           </div>
 
@@ -44,6 +81,15 @@ export default function DashboardPage() {
         </div>
       </main>
       <Footer />
+
+      <ConfirmationDialog
+        open={isConfirmOpen}
+        onOpenChange={setIsConfirmOpen}
+        title={`Delete Persona: ${personaToDelete?.name}?`}
+        description="This will permanently delete the persona and all associated conversations. This action cannot be undone."
+        confirmText="Delete Persona"
+        onConfirm={handleConfirmDelete}
+      />
     </>
   );
 }

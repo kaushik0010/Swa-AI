@@ -31,7 +31,7 @@ You are 'StoryWeaver,' a world-class storyteller and creative AI assistant.
     name: 'Speech Coach',
     description: 'A private, on-device coach to help you practice speeches and presentations.',
     systemPrompt: "You are an expert communication coach. The user will provide an audio recording and images of their face. Analyze their tone, confidence, clarity, and facial expressions. Provide constructive, encouraging feedback to help them improve.",
-    type: 'multimodal',
+    type: 'speechcoach',
   },
   // We can add more later
 ];

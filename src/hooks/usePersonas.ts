@@ -1,4 +1,5 @@
 // src/lib/usePersonas.ts
+import { PREBUILT_PERSONAS } from '@/lib/prebuilt-personas';
 import type { Conversation, Message, Persona } from '@/lib/types';
 import { useState, useEffect, useCallback } from 'react';
 
@@ -43,6 +44,31 @@ export function usePersonas() {
      return personas.some(p => p.id === id);
   }, [personas]);
 
+  // --- NEW: Delete Persona ---
+  const deletePersona = useCallback((personaId: string) => {
+    // Prevent deleting pre-built personas from the list they appear in
+    if (PREBUILT_PERSONAS.some(p => p.id === personaId)) {
+        console.warn("Attempted to delete a pre-defined persona ID reference.");
+        // We only remove custom ones from localStorage/state
+        setPersonas(prev => {
+            const updatedPersonas = prev.filter(p => p.id !== personaId);
+            window.localStorage.setItem(PERSONAS_STORAGE_KEY, JSON.stringify(updatedPersonas));
+            return updatedPersonas;
+        });
+        // Also delete associated conversations
+        deleteAllConversationsForPersona(personaId);
+        return;
+    }
+
+    setPersonas(prev => {
+      const updatedPersonas = prev.filter(p => p.id !== personaId);
+      window.localStorage.setItem(PERSONAS_STORAGE_KEY, JSON.stringify(updatedPersonas));
+      return updatedPersonas;
+    });
+    // Also delete associated conversations
+    deleteAllConversationsForPersona(personaId);
+  }, [conversations]);
+
   // --- Conversation Management ---
   const getConversationsForPersona = useCallback((personaId: string): Conversation[] => {
     return conversations
@@ -83,16 +109,37 @@ export function usePersonas() {
      return newConversation;
   }, [saveConversation]);
 
+  // --- NEW: Delete Single Conversation ---
+  const deleteConversation = useCallback((convoId: string) => {
+    setConversations(prev => {
+      const updatedConvos = prev.filter(c => c.id !== convoId);
+      window.localStorage.setItem(CONVERSATIONS_STORAGE_KEY, JSON.stringify(updatedConvos));
+      return updatedConvos;
+    });
+  }, []);
+
+  // --- NEW: Delete All Conversations for Persona ---
+  const deleteAllConversationsForPersona = useCallback((personaId: string) => {
+    setConversations(prev => {
+      const updatedConvos = prev.filter(c => c.personaId !== personaId);
+      window.localStorage.setItem(CONVERSATIONS_STORAGE_KEY, JSON.stringify(updatedConvos));
+      return updatedConvos;
+    });
+  }, []);
+
   // --- Combined Hook Return ---
   return {
     personas,
     addPersona,
     getPersona,
-    personaExists, // <-- New helper
+    personaExists,
+    deletePersona,
     conversations,
     getConversationsForPersona,
     getConversation,
     saveConversation,
     createNewConversation,
+    deleteConversation,
+    deleteAllConversationsForPersona
   };
 }

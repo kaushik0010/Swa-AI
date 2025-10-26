@@ -10,9 +10,11 @@ import { ChatInput } from '@/components/chat/ChatInput';
 import { ChatMessage } from '@/components/chat/ChatMessage';
 import { useEffect, useMemo, useState, useRef, useCallback } from 'react';
 import { toast } from "sonner";
-import { ListRestart } from 'lucide-react'; // Icon for new chat button
+import { CircleDot, ListRestart, Mic, Square, Upload, Video } from 'lucide-react'; // Icon for new chat button
 import type { Conversation, Message, Persona } from '@/lib/types';
 import { ConversationList } from '@/components/chat/ConversationList';
+import { useReactMediaRecorder } from "react-media-recorder";
+import { Label } from '@/components/ui/label';
 
 interface ChatSession {
   promptStreaming: (prompt: string | { role: string; content: any }[]) => Promise<ReadableStream<string>>;
@@ -50,6 +52,66 @@ export default function ChatPage() {
   const [isLoading, setIsLoading] = useState(false); // Loading AI response
   const [isSessionLoading, setIsSessionLoading] = useState(false); // Loading the session itself
   const chatContainerRef = useRef<HTMLDivElement>(null);
+
+  // --- Add State for Speech Coach UI ---
+  type SpeechCoachMode = 'options' | 'uploading' | 'capturing' | 'previewing' | 'analyzing';
+  const [speechCoachMode, setSpeechCoachMode] = useState<SpeechCoachMode>('options');
+  const [capturedAudioBlobUrl, setCapturedAudioBlobUrl] = useState<string | null>(null); // Use specific name
+  const [capturedImageSnapshots, setCapturedImageSnapshots] = useState<string[]>([]); // Use specific name
+  const [uploadedVideoFile, setUploadedVideoFile] = useState<File | null>(null);
+  const [recordingStartTime, setRecordingStartTime] = useState<number | null>(null); // For timer
+  const [elapsedTime, setElapsedTime] = useState(0); // For display timer
+
+  // --- Refs for video and canvas ---
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const snapshotIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null); // Ref for interval timer
+  const stopTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null); // Ref for stop timer
+
+
+  // --- Media Recorder Hook ---
+  const {
+    status: recorderStatus, // 'idle', 'recording', 'stopped', 'acquiring_media'
+    startRecording,
+    stopRecording,
+    mediaBlobUrl, // URL available after stopRecording
+    previewStream, // Live stream for the video preview
+  } = useReactMediaRecorder({
+    video: true,
+    audio: true,
+    onStop: (blobUrl, blob) => {
+      console.log("Recording stopped. Audio Blob URL:", blobUrl);
+      setCapturedAudioBlobUrl(blobUrl);
+      setSpeechCoachMode('previewing'); // Move to preview mode after stopping
+    },
+    askPermissionOnMount: false, // Don't ask immediately
+  });
+
+  // --- Effect to update the timer display ---
+  useEffect(() => {
+    let interval: number | null = null;
+    if (recorderStatus === 'recording' && recordingStartTime) {
+      interval = setInterval(() => {
+        setElapsedTime(Math.floor((Date.now() - recordingStartTime) / 1000));
+      }, 1000);
+    } else {
+      setElapsedTime(0); // Reset timer when not recording
+    }
+    return () => {
+      if (interval) clearInterval(interval); // Cleanup interval
+    };
+  }, [recorderStatus, recordingStartTime]);
+
+  const hasSetStreamRef = useRef(false);
+
+  useEffect(() => {
+    if (!hasSetStreamRef.current && videoRef.current && previewStream) {
+      videoRef.current.srcObject = previewStream;
+      videoRef.current.play().catch(console.error);
+      hasSetStreamRef.current = true;
+    }
+  }, [previewStream]);
+
   
   // --- Determine Conversation ID from URL ---
   const convoId = useMemo(() => {
@@ -134,6 +196,89 @@ export default function ChatPage() {
       chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
     }
   }, [currentConvo?.messages]); // Scroll when messages change
+
+
+  // --- Snapshot Logic ---
+  const captureSnapshot = useCallback(() => {
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    if (!video || !canvas) return;
+
+    if (video.videoWidth === 0 || video.videoHeight === 0) return;
+
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    const snapshot = canvas.toDataURL("image/jpeg", 0.8);
+    setCapturedImageSnapshots((prev) => [...prev, snapshot]);
+  }, []);
+
+  // --- Start Capture ---
+  const handleStartCapture = async () => {
+    try {
+      setCapturedImageSnapshots([]);
+      setCapturedAudioBlobUrl(null);
+      setElapsedTime(0);
+
+      await startRecording();
+      setRecordingStartTime(Date.now());
+
+      // Initial snapshot immediately
+      captureSnapshot();
+
+      // Snapshot every 15 seconds
+      snapshotIntervalRef.current = setInterval(captureSnapshot, 15 * 1000);
+
+      // Auto-stop after 60 seconds
+      stopTimeoutRef.current = setTimeout(() => {
+        captureSnapshot();
+        stopRecording();
+        handleStopCaptureCleanupOnly();
+      }, 60 * 1000);
+    } catch (err) {
+      console.error(err);
+      toast.error("Could not start recording. Please allow camera and mic permissions.");
+    }
+  };
+
+  const handleStopCaptureCleanupOnly = useCallback(() => {
+    if (snapshotIntervalRef.current) clearInterval(snapshotIntervalRef.current);
+    if (stopTimeoutRef.current) clearTimeout(stopTimeoutRef.current);
+
+    snapshotIntervalRef.current = null;
+    stopTimeoutRef.current = null;
+
+    setRecordingStartTime(null);
+  }, []);
+
+  // --- Stop Capture ---
+  const handleStopCaptureManual = useCallback(() => {
+    if (recorderStatus === "recording") {
+      captureSnapshot();
+      stopRecording();
+    }
+    handleStopCaptureCleanupOnly();
+  }, [recorderStatus, stopRecording, handleStopCaptureCleanupOnly, captureSnapshot]);
+
+  useEffect(() => {
+    if (recordingStartTime) {
+      const timer = setInterval(() => {
+        setElapsedTime(Math.floor((Date.now() - recordingStartTime) / 1000));
+      }, 1000);
+      return () => clearInterval(timer);
+    }
+  }, [recordingStartTime]);
+
+  useEffect(() => {
+    return () => {
+      if (snapshotIntervalRef.current) clearInterval(snapshotIntervalRef.current);
+      if (stopTimeoutRef.current) clearTimeout(stopTimeoutRef.current);
+    };
+  }, []);
 
 
   // --- Handle New Chat Button ---
@@ -287,14 +432,130 @@ export default function ChatPage() {
 
   // --- Render Logic ---
    const renderContent = () => {
-    // ... (Multimodal placeholder, Unavailable, Downloadable, Downloading states are mostly the same)
-    if (persona?.type === 'multimodal') {
-      return (
-        <div className="text-center p-10 bg-slate-800 rounded-lg">
-          <p className="text-slate-400">The "Speech Coach" uses multimodal input.</p>
-          <p className="text-slate-400">This UI will be built on Day 4!</p>
-        </div>
-      );
+    // --- Speech Coach UI Logic ---
+    if (persona?.type === 'speechcoach') {
+      // --- State: Showing Initial Options ---
+      if (speechCoachMode === 'options') {
+        return (
+          <div className="text-center p-6 bg-slate-800 rounded-lg border border-slate-700 space-y-4">
+            <h3 className="text-lg font-semibold">Prepare Your Rehearsal</h3>
+            <p className="text-sm text-slate-400">
+              How would you like to provide your speech recording?
+            </p>
+            <div className="flex flex-col sm:flex-row justify-center gap-4 pt-2">
+              <Button onClick={() => setSpeechCoachMode('uploading')}>
+                <Upload className="mr-2 h-4 w-4" /> Upload Video File
+              </Button>
+              <Button onClick={() => setSpeechCoachMode('capturing')}>
+                <Video className="mr-2 h-4 w-4" /> Capture Live Rehearsal
+              </Button>
+            </div>
+          </div>
+        );
+      }
+
+      // --- State: Upload Mode Placeholder ---
+      if (speechCoachMode === 'uploading') {
+        // We will build the file input logic later
+        return (
+          <div className="text-center p-10 bg-slate-800 rounded-lg border border-slate-700">
+            <h3 className="text-lg font-semibold">Upload Video</h3>
+            <p className="text-slate-400 mt-2">
+              (File input UI coming soon...)
+            </p>
+            <Button variant="outline" className="mt-4" onClick={() => setSpeechCoachMode('options')}>
+              Back to options
+            </Button>
+          </div>
+        );
+      }
+
+      // --- State: Capture Mode Placeholder ---
+      if (speechCoachMode === 'capturing') {
+        const isAcquiring = recorderStatus === 'acquiring_media';
+        const isRecording = recorderStatus === 'recording';
+
+        return (
+          <div className="p-4 bg-slate-800 rounded-lg border border-slate-700">
+            <h3 className="text-lg font-semibold text-center mb-4">Live Rehearsal</h3>
+
+            {/* Hidden Canvas for Snapshots */}
+            <canvas ref={canvasRef} style={{ display: 'none' }}></canvas>
+
+            {/* Video Preview */}
+            <div className="aspect-video bg-black rounded overflow-hidden mb-4 border border-slate-600">
+              <video ref={videoRef} autoPlay muted playsInline className="w-full h-full object-cover"></video>
+            </div>
+
+            {/* Status and Timer */}
+            <div className="text-center mb-4">
+              {isAcquiring && <p className="text-sm text-yellow-400"><CircleDot className="inline mr-1 h-3 w-3 animate-pulse"/>Requesting permissions...</p>}
+              {isRecording && (
+                 <p className="text-lg font-semibold text-red-400">
+                   <Mic className="inline mr-2 h-5 w-5 animate-pulse"/> Recording... {String(Math.floor(elapsedTime / 60)).padStart(2, '0')}:{String(elapsedTime % 60).padStart(2, '0')} / 01:00
+                 </p>
+              )}
+               {!isRecording && !isAcquiring && <p className="text-sm text-slate-400">Ready to record (Max 60s)</p>}
+            </div>
+
+            {/* Controls */}
+            <div className="flex justify-center gap-4">
+              <Button
+                variant="outline"
+                onClick={() => setSpeechCoachMode('options')}
+                disabled={isRecording || isAcquiring}
+              >
+                Cancel
+              </Button>
+              {!isRecording ? (
+                <Button onClick={handleStartCapture} disabled={isAcquiring}>
+                  <CircleDot className="mr-2 h-4 w-4" /> Start Recording
+                </Button>
+              ) : (
+                <Button variant="destructive" onClick={handleStopCaptureManual}>
+                  <Square className="mr-2 h-4 w-4" /> Stop Recording
+                </Button>
+              )}
+            </div>
+          </div>
+        );
+      } // --- End Capture Mode ---
+
+      // --- State: Previewing Captured Media ---
+       if (speechCoachMode === 'previewing') {
+         return (
+         <>
+           <div className="p-4 bg-slate-800 rounded-lg border border-slate-700 space-y-4">
+             <h3 className="text-lg font-semibold">Rehearsal Preview</h3>
+             {capturedAudioBlobUrl && (
+               <div>
+                 <Label>Captured Audio:</Label>
+                 <audio src={capturedAudioBlobUrl} controls className="w-full mt-1" />
+               </div>
+             )}
+             {capturedImageSnapshots.length > 0 && (
+                <div>
+                  <Label>Captured Snapshots ({capturedImageSnapshots.length}):</Label>
+                  <div className="flex gap-2 overflow-x-auto mt-1 p-1 bg-slate-900 rounded">
+                     {capturedImageSnapshots.map((src, index) => (
+                       <img key={index} src={src} alt={`Snapshot ${index + 1}`} className="h-20 w-auto rounded object-cover shrink-0" />
+                     ))}
+                  </div>
+                </div>
+             )}
+              {/* TODO: Add Analyze Button - We'll wire this up on Day 5 */}
+              <Button className="w-full" onClick={() => toast.info("Analysis coming soon!")}>
+                 Analyze Rehearsal
+              </Button>
+
+             <Button variant="outline" className="w-full" onClick={() => setSpeechCoachMode('options')}>
+                Discard and Return
+             </Button>
+           </div>
+           </>
+         );
+       }
+
     }
 
     // B. AI Model is unavailable
@@ -385,6 +646,21 @@ export default function ChatPage() {
       );
     }
 
+    // Session creation failed but model is available (for text personas)
+    if (availability === 'available' && !session && !isSessionLoading && persona?.type === 'text') {
+       return (
+        <div className="text-center p-10 bg-slate-800 rounded-lg border border-red-900">
+          <h3 className="text-lg font-semibold text-red-400">Session Failed</h3>
+          <p className="text-slate-400 mt-2">
+            Could not initialize the AI chat session for this persona. Please try refreshing the page or starting a new chat.
+          </p>
+          <Button variant="outline" className="mt-4" onClick={() => window.location.reload()}>
+            Refresh Page
+          </Button>
+        </div>
+      );
+    }
+
     // Default: Still checking availability
     return (
        <div className="text-center p-10 bg-slate-800 rounded-lg">
@@ -423,7 +699,7 @@ export default function ChatPage() {
         </div>
         
         {/* --- ADD CONVERSATION LIST HERE --- */}
-        <ConversationList conversations={pastConversations} personaId={persona.id} />
+        <ConversationList conversations={pastConversations} persona={persona} />
         
         {renderContent()} {/* This contains the main chat UI */}
       </main>

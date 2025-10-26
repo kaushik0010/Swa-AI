@@ -4,15 +4,18 @@ import { Navbar } from '@/components/layout/Navbar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { usePersonas } from '@/hooks/usePersonas';
-import { CreatePersonaSchema } from '@/lib/schemas';
+import { CreatePersonaSchema, PersonaTypeEnum } from '@/lib/schemas';
+import type { Persona } from '@/lib/types';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import type z from 'zod';
 
 type FormErrors = z.ZodFlattenedError<z.infer<typeof CreatePersonaSchema>>;
+type PersonaType = z.infer<typeof PersonaTypeEnum>;
 
 export default function CreatePage() {
   const navigate = useNavigate();
@@ -20,6 +23,7 @@ export default function CreatePage() {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [systemPrompt, setSystemPrompt] = useState('');
+  const [personaType, setPersonaType] = useState<PersonaType>('text');
 
   const [errors, setErrors] = useState<FormErrors | null>(null);
 
@@ -31,6 +35,7 @@ export default function CreatePage() {
       name,
       description,
       systemPrompt,
+      type: personaType
     });
 
     if (!result.success) {
@@ -40,12 +45,12 @@ export default function CreatePage() {
     }
 
     // Create the new persona object
-    const newPersona = {
-      id: crypto.randomUUID(), // Create a unique random ID
-      name,
-      description,
-      systemPrompt,
-      type: 'text' as const, // Default to 'text' for now
+    const newPersona: Persona = {
+      id: crypto.randomUUID(),
+      name: result.data.name,
+      description: result.data.description || "",
+      systemPrompt: result.data.systemPrompt,
+      type: result.data.type,
     };
 
     addPersona(newPersona);
@@ -104,7 +109,31 @@ export default function CreatePage() {
                 </p>
               )}
             </div>
-            <Button type="submit">Save Persona</Button>
+
+            <div>
+              <Label htmlFor="persona-type">Persona Type *</Label>
+              <Select
+                value={personaType}
+                onValueChange={(value: string) => setPersonaType(value as PersonaType)}
+              >
+                <SelectTrigger id="persona-type" className="w-full mt-1 bg-slate-800 border-slate-700">
+                  <SelectValue placeholder="Select a type" />
+                </SelectTrigger>
+                <SelectContent className="bg-slate-800 border-slate-700">
+                  <SelectItem value="text">Text (Standard Chat)</SelectItem>
+                  <SelectItem value="audio">Multimodal (Audio Focus)</SelectItem>
+                  <SelectItem value="image">Multimodal (Image Focus)</SelectItem>
+                  <SelectItem value="speechcoach">Multimodal (Audio + Video)</SelectItem>
+                </SelectContent>
+              </Select>
+              {/* Display validation error for type if needed */}
+              {errors?.fieldErrors.type && (
+                 <p className="text-sm text-red-400 mt-1">
+                  Please select a persona type.
+                </p>
+              )}
+            </div>
+            <Button type="submit" className='cursor-pointer'>Save Persona</Button>
           </form>
         </div>
       </main>
