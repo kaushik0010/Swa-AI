@@ -15,6 +15,7 @@ import type { Conversation, Message, Persona } from '@/lib/types';
 import { ConversationList } from '@/components/chat/ConversationList';
 import { useReactMediaRecorder } from "react-media-recorder";
 import { Label } from '@/components/ui/label';
+import { dataUrlToBlob } from '@/lib/utils';
 
 interface ChatSession {
   promptStreaming: (prompt: string | { role: string; content: any }[]) => Promise<ReadableStream<string>>;
@@ -44,7 +45,7 @@ export default function ChatPage() {
     return getPersona(personaId);
   }, [personaId, getPersona]);
 
-  const { availability, downloadModel, downloadProgress, createChatSession, generateTitle } = useLanguageModel();
+  const { availability, downloadModel, downloadProgress, createChatSession, generateTitle, createMultimodalSession } = useLanguageModel();
 
   // --- State ---
   const [currentConvo, setCurrentConvo] = useState<Conversation | null>(null);
@@ -56,11 +57,13 @@ export default function ChatPage() {
   // --- Add State for Speech Coach UI ---
   type SpeechCoachMode = 'options' | 'uploading' | 'capturing' | 'previewing' | 'analyzing';
   const [speechCoachMode, setSpeechCoachMode] = useState<SpeechCoachMode>('options');
-  const [capturedAudioBlobUrl, setCapturedAudioBlobUrl] = useState<string | null>(null); // Use specific name
-  const [capturedImageSnapshots, setCapturedImageSnapshots] = useState<string[]>([]); // Use specific name
+  const [capturedAudioBlobUrl, setCapturedAudioBlobUrl] = useState<string | null>(null);
+  const [capturedImageSnapshots, setCapturedImageSnapshots] = useState<string[]>([]); 
   const [uploadedVideoFile, setUploadedVideoFile] = useState<File | null>(null);
-  const [recordingStartTime, setRecordingStartTime] = useState<number | null>(null); // For timer
-  const [elapsedTime, setElapsedTime] = useState(0); // For display timer
+  const [recordingStartTime, setRecordingStartTime] = useState<number | null>(null); 
+  const [elapsedTime, setElapsedTime] = useState(0); 
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [analysisResult, setAnalysisResult] = useState<string | null>(null);
 
   // --- Refs for video and canvas ---
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -82,9 +85,9 @@ export default function ChatPage() {
     onStop: (blobUrl, blob) => {
       console.log("Recording stopped. Audio Blob URL:", blobUrl);
       setCapturedAudioBlobUrl(blobUrl);
-      setSpeechCoachMode('previewing'); // Move to preview mode after stopping
+      setSpeechCoachMode('previewing'); 
     },
-    askPermissionOnMount: false, // Don't ask immediately
+    askPermissionOnMount: false, 
   });
 
   // --- Effect to update the timer display ---
@@ -197,6 +200,79 @@ export default function ChatPage() {
     }
   }, [currentConvo?.messages]); // Scroll when messages change
 
+
+  // --- NEW: Analyze Rehearsal Function ---
+  const analyzeRehearsal = useCallback(async () => {
+    if (!persona || !capturedAudioBlobUrl || capturedImageSnapshots.length === 0) {
+      toast.error("Missing audio or image data for analysis.");
+      return;
+    }
+
+    setIsAnalyzing(true);
+    setAnalysisResult(null); // Clear previous results
+    setSpeechCoachMode('analyzing'); // Update UI mode
+    const loadingToastId = toast.loading("Analyzing rehearsal...");
+
+    let session: any = null; // Use 'any' for now
+
+    try {
+      // 1. Prepare Media Data
+      // Fetch the audio Blob
+      const audioResponse = await fetch(capturedAudioBlobUrl);
+      const audioBlob = await audioResponse.blob();
+
+      // Convert image data URLs to Blobs
+      const imageBlobs = await Promise.all(
+        capturedImageSnapshots.map(dataUrl => dataUrlToBlob(dataUrl))
+      );
+      const validImageBlobs = imageBlobs.filter(blob => blob !== null) as Blob[];
+
+      if (!audioBlob || validImageBlobs.length === 0) {
+        throw new Error("Failed to prepare media Blobs.");
+      }
+      console.log(`Prepared ${validImageBlobs.length} image Blobs and 1 audio Blob.`);
+
+      // 2. Create Multimodal Session
+      session = await createMultimodalSession(
+        persona.systemPrompt, // Use the Speech Coach's system prompt
+        [ // Define expected inputs
+          { type: 'audio' },
+          { type: 'image' }, // Can list image multiple times if needed, or once is fine
+          { type: 'text' } // For our final text prompt
+        ]
+      );
+
+      // 3. Construct the Multimodal Prompt Array
+      const multimodalPrompt = [
+        { role: 'user', content: [{ type: 'audio', value: audioBlob }] },
+        // Add each image blob
+        ...validImageBlobs.map(imgBlob => ({ role: 'user', content: [{ type: 'image', value: imgBlob }] })),
+        // Add the final text prompt instructing the AI
+        { role: 'user', content: [{ type: 'text', value: "Analyze the provided audio recording and image snapshots based on your system prompt instructions. Provide constructive feedback." }] }
+      ];
+      console.log("Sending multimodal prompt structure:", multimodalPrompt);
+
+
+      // 4. Call the AI (non-streaming for simplicity)
+      // Note: The API might expect a different structure - check docs if this fails
+      const result = await session.prompt(multimodalPrompt);
+
+      console.log("Analysis Result:", result);
+      setAnalysisResult(result);
+      toast.success("Analysis complete!", { id: loadingToastId });
+
+    } catch (error: any) {
+      console.error("Error during analysis:", error);
+      toast.error(`Analysis failed: ${error.message || 'Unknown error'}`, { id: loadingToastId });
+      setSpeechCoachMode('previewing'); // Go back to preview on error
+    } finally {
+      setIsAnalyzing(false);
+      session?.destroy(); // Clean up the session
+    }
+  }, [
+      persona, capturedAudioBlobUrl, capturedImageSnapshots,
+      createMultimodalSession, setSpeechCoachMode // Add dependencies
+  ]);
 
   // --- Snapshot Logic ---
   const captureSnapshot = useCallback(() => {
@@ -544,17 +620,52 @@ export default function ChatPage() {
                 </div>
              )}
               {/* TODO: Add Analyze Button - We'll wire this up on Day 5 */}
-              <Button className="w-full" onClick={() => toast.info("Analysis coming soon!")}>
+              <Button className="w-full cursor-pointer" onClick={analyzeRehearsal}>
                  Analyze Rehearsal
               </Button>
 
-             <Button variant="outline" className="w-full" onClick={() => setSpeechCoachMode('options')}>
+             <Button variant="outline" className="w-full cursor-pointer" onClick={() => setSpeechCoachMode('options')}>
                 Discard and Return
              </Button>
            </div>
            </>
          );
        }
+
+       // --- NEW: Analyzing Mode ---
+      if (speechCoachMode === 'analyzing' && isAnalyzing) {
+         return (
+           <div className="text-center p-10 bg-slate-800 rounded-lg border border-slate-700">
+             <h3 className="text-lg font-semibold text-blue-400">Analyzing Rehearsal...</h3>
+             <p className="text-slate-400 mt-2">
+               The AI is processing your audio and images. Please wait.
+             </p>
+             {/* Optional: Add a spinner icon here */}
+           </div>
+         );
+      } // --- End Analyzing ---
+
+      // --- NEW: Displaying Analysis Result ---
+      if (speechCoachMode === 'analyzing' && !isAnalyzing && analysisResult) {
+         return (
+           <div className="p-4 bg-slate-800 rounded-lg border border-slate-700 space-y-4">
+             <h3 className="text-lg font-semibold">Analysis Feedback</h3>
+             <div className="p-3 bg-slate-900 rounded border border-slate-700 max-h-96 overflow-y-auto">
+                <pre className="text-sm text-slate-200 whitespace-pre-wrap font-sans">
+                  {analysisResult}
+                </pre>
+             </div>
+             <Button variant="outline" className="w-full cursor-pointer" onClick={() => {
+                 setSpeechCoachMode('options');
+                 setAnalysisResult(null); // Clear result
+                 setCapturedAudioBlobUrl(null);
+                 setCapturedImageSnapshots([]);
+             }}>
+                 Done / Record Again
+             </Button>
+           </div>
+         );
+      }
 
     }
 

@@ -4,13 +4,21 @@ import { useState, useEffect, useCallback } from 'react';
 // Define the types from the API
 type Availability = 'available' | 'unavailable' | 'downloading' | 'downloadable';
 
-// This is the new API entry point
-
 interface ModelParams {
   defaultTopK: number;
   maxTopK: number;
   defaultTemperature: number;
   maxTemperature: number;
+}
+
+interface ExpectedInput {
+  type: 'text' | 'image' | 'audio';
+  languages?: string[];
+}
+
+interface ExpectedOutput {
+  type: 'text'; 
+  languages?: string[];
 }
 
 interface LanguageModel {
@@ -20,6 +28,8 @@ interface LanguageModel {
     monitor?(m: any): void;
     topK?: number;
     temperature?: number;
+    expectedInputs?: ExpectedInput[];
+    expectedOutputs?: ExpectedOutput[];
   }): Promise<any>; // Using 'any' for the session for now
   params(): Promise<ModelParams>;
 }
@@ -102,6 +112,8 @@ export function useLanguageModel() {
       initialPrompts: initialPrompts,
       topK: newTopK,
       temperature: newTemperature,
+      expectedInputs: [{ type: 'text', languages: ['en'] }],
+      expectedOutputs: [{ type: 'text', languages: ['en'] }],
     });
 
     const sessionWithDestroy = session as any; 
@@ -114,7 +126,39 @@ export function useLanguageModel() {
     return sessionWithDestroy;
   }, [availability, modelParams]);
 
-  // --- NEW: Function to Generate Title ---
+
+  // --- Function to Create Multimodal Session ---
+  const createMultimodalSession = useCallback(async (
+    systemPrompt: string,
+    inputs: ExpectedInput[], // Define the expected inputs
+    outputs: ExpectedOutput[] = [{ type: 'text', languages: ['en'] }] // Default output
+  ) => {
+    if (availability !== 'available' || !modelParams) {
+      throw new Error("Model is not available or params not loaded.");
+    }
+
+    // Use default parameters for multimodal for now, can be adjusted
+    const defaultTopK = modelParams.defaultTopK;
+    const defaultTemperature = modelParams.defaultTemperature;
+
+    console.log("Creating multimodal session with expected inputs:", inputs);
+
+    const session = await LanguageModel.create({
+      initialPrompts: [{ role: 'system', content: systemPrompt }],
+      topK: defaultTopK,
+      temperature: defaultTemperature,
+      expectedInputs: inputs, // <-- Set multimodal inputs
+      expectedOutputs: outputs,
+    });
+
+    // Add destroy method placeholder
+    const sessionWithDestroy = session as any;
+    sessionWithDestroy.destroy = () => console.log("Multimodal session destroy called (placeholder)");
+    return sessionWithDestroy;
+
+  }, [availability, modelParams]);
+
+  // --- Function to Generate Title ---
   const generateTitle = useCallback(async (userMessage: string, assistantResponse: string): Promise<string> => {
     // Ensure model is ready before attempting
     if (availability !== 'available' || !modelParams) {
@@ -135,22 +179,19 @@ export function useLanguageModel() {
         temperature: modelParams.defaultTemperature,
       });
 
-      // Construct the prompt for the title generator
       const titlePrompt = `User: ${userMessage}\nAssistant: ${assistantResponse}`;
 
-      // Use the non-streaming prompt() method for a quick, single response
       const rawTitle = await session.prompt(titlePrompt);
 
       // Basic cleanup (remove potential quotes, extra spaces)
       const cleanedTitle = rawTitle.replace(/["']/g, "").trim();
 
-      return cleanedTitle || "New Chat"; // Return cleaned title or fallback
+      return cleanedTitle || "New Chat"; 
 
     } catch (error) {
       console.error("Error generating title:", error);
-      return "New Chat"; // Fallback on error
+      return "New Chat"; 
     } finally {
-      // Destroy the temporary session if it was created
       session?.destroy();
     }
   }, [availability, modelParams]);
@@ -160,6 +201,7 @@ export function useLanguageModel() {
     downloadModel,
     downloadProgress,
     createChatSession,
+    createMultimodalSession,
     generateTitle
   };
 }

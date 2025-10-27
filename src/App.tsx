@@ -10,7 +10,7 @@ function App() {
   const router = createBrowserRouter([
     {
     path: "/",
-    element: <HomePage />, // <-- '/' is now the new home page
+    element: <HomePage />,
   },
   {
     path: "/dashboard",
@@ -21,7 +21,6 @@ function App() {
     element: <CreatePage />,
   },
   {
-    // We will pass the persona's ID in the URL
     path: "/chat/:personaId",
     element: <ChatPage />,
   },
