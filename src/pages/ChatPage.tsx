@@ -16,6 +16,8 @@ import { ConversationList } from '@/components/chat/ConversationList';
 import { useReactMediaRecorder } from "react-media-recorder";
 import { Label } from '@/components/ui/label';
 import { dataUrlToBlob } from '@/lib/utils';
+import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
 
 interface ChatSession {
   promptStreaming: (prompt: string | { role: string; content: any }[]) => Promise<ReadableStream<string>>;
@@ -64,6 +66,12 @@ export default function ChatPage() {
   const [elapsedTime, setElapsedTime] = useState(0); 
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<string | null>(null);
+
+  const [isRewriteDialogOpen, setIsRewriteDialogOpen] = useState(false);
+  const [messageToRewrite, setMessageToRewrite] = useState<{ message: Message; index: number } | null>(null);
+  const [rewriteInstruction, setRewriteInstruction] = useState("");
+  const [isRewriting, setIsRewriting] = useState(false);
+  const [attachedFile, setAttachedFile] = useState<File | null>(null);
 
   // --- Refs for video and canvas ---
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -200,6 +208,95 @@ export default function ChatPage() {
     }
   }, [currentConvo?.messages]); // Scroll when messages change
 
+  const handleFileSelect = useCallback((file: File | null) => {
+    setAttachedFile(file);
+  }, []);
+
+  const handleRewriteClick = (message: Message, index: number) => {
+    setMessageToRewrite({ message, index });
+    setRewriteInstruction(""); // Clear previous instruction
+    setIsRewriteDialogOpen(true);
+  };
+
+  // --- Placeholder Function for handling the actual rewrite ---
+  const handleConfirmRewrite = async () => {
+     if (!messageToRewrite || !rewriteInstruction || !currentConvo || !persona || !session) return;
+
+     setIsRewriting(true);
+     setIsRewriteDialogOpen(false); // Close dialog immediately
+     const { message: originalMessage, index: messageIndex } = messageToRewrite;
+     const loadingToastId = toast.loading("Rewriting response...");
+
+     // --- Construct the Rewrite Prompt ---
+     // Find the user message that prompted this response (if available)
+     const precedingUserMessage = currentConvo.messages[messageIndex - 1]?.role === 'user'
+         ? currentConvo.messages[messageIndex - 1].content
+         : "[Context not directly available]";
+
+     const rewriteMetaPrompt = `
+      [System Prompt of Persona]
+      ${persona.systemPrompt}
+
+      [Original User Query that led to the response]
+      ${precedingUserMessage}
+
+      [Original Assistant Response to Rewrite]
+      ${originalMessage.content}
+
+      [User's Rewrite Instruction]
+      ${rewriteInstruction}
+
+      [Task]
+      Rewrite the "[Original Assistant Response to Rewrite]" section strictly following the "[User's Rewrite Instruction]". Maintain the persona defined in "[System Prompt of Persona]". Output only the rewritten text, without any introductory phrases like "Here is the rewritten text:".
+      `;
+
+     try {
+         // Use promptStreaming (or prompt if preferred) - using streaming here
+         const stream = await session.promptStreaming(rewriteMetaPrompt);
+         let rewrittenContent = "";
+
+         for await (const chunk of stream) {
+             rewrittenContent += chunk;
+             // Update the message content in real-time (optional, can just update at end)
+             setCurrentConvo(prev => {
+                 if (!prev) return null;
+                 const updatedMessages = [...prev.messages];
+                 // Ensure index is valid
+                 if (messageIndex >= 0 && messageIndex < updatedMessages.length) {
+                     updatedMessages[messageIndex] = { ...updatedMessages[messageIndex], content: rewrittenContent };
+                 }
+                 return { ...prev, messages: updatedMessages };
+             });
+         }
+
+         // Final cleanup and save
+         const finalRewrittenContent = rewrittenContent.replace(/\n{3,}/g, '\n\n').trimEnd();
+         setCurrentConvo(prev => {
+             if (!prev) return null;
+             const finalMessages = [...prev.messages];
+              if (messageIndex >= 0 && messageIndex < finalMessages.length) {
+                  finalMessages[messageIndex] = {
+                      ...finalMessages[messageIndex],
+                      content: finalRewrittenContent,
+                      timestamp: Date.now() // Update timestamp on rewrite
+                  };
+              }
+             const finalConvo = { ...prev, messages: finalMessages, lastEdited: Date.now() };
+             saveConversation(finalConvo);
+             return finalConvo;
+         });
+
+         toast.success("Rewrite complete!", { id: loadingToastId });
+
+     } catch (error: any) {
+         console.error("Error during rewrite:", error);
+         toast.error(`Rewrite failed: ${error.message || 'Unknown error'}`, { id: loadingToastId });
+         // Optional: Revert message content if rewrite fails? (More complex state needed)
+     } finally {
+         setIsRewriting(false);
+         setMessageToRewrite(null); // Clear the message being rewritten
+     }
+  };
 
   // --- NEW: Analyze Rehearsal Function ---
   const analyzeRehearsal = useCallback(async () => {
@@ -416,13 +513,37 @@ export default function ChatPage() {
   };
 
   // --- Handle User Message Submission ---
-  const handleSubmitMessage = useCallback(async (userInput: string) => {
+  const handleSubmitMessage = useCallback(async (userInput: string, file?: File) => {
     if (!session || !persona) {
       toast.error("Session not ready.");
       return;
     }
 
-    const newUserMessage: Message = { role: 'user', content: userInput, timestamp: Date.now() };
+    if (!userInput.trim() && !file) {
+        toast.warning("Please type a message or attach a file.");
+        return;
+    }
+
+    let userMessageContent = userInput;
+
+    const newUserMessage: Message = { role: 'user', content: userMessageContent, timestamp: Date.now() };
+
+    let payload: any[] = [{ type: 'text', value: userInput }]; // Start with text
+    let mediaType: 'audio' | 'image' | null = null; // Track media type
+
+    if (file) {
+        // Convert File to Blob (File is already a Blob subclass)
+        const mediaBlob: Blob = file;
+        mediaType = file.type.startsWith('image/') ? 'image' :
+                    file.type.startsWith('audio/') ? 'audio' : null;
+
+        if (mediaType) {
+            payload.unshift({ type: mediaType, value: mediaBlob }); // Add media *before* text
+        } else {
+            toast.error("Unsupported file type attached.");
+            return; // Don't proceed if file type is wrong
+        }
+    }
     
     let convoToUpdate: Conversation;
     let isNewConversation = false;
@@ -455,13 +576,15 @@ export default function ChatPage() {
     
     setCurrentConvo(convoToUpdate); // Update UI immediately
     setIsLoading(true);
+    setAttachedFile(null);
 
     // --- Suggestion 1: Generate Title for New Convo ---
     let accumulatedResponse = "";
 
     try {
       // Pass only the new user message to promptStreaming (history is already in the session)
-      const stream = await session.promptStreaming(userInput); 
+      console.log("Sending multimodal payload:", payload);
+      const stream = await session.promptStreaming([{ role: 'user', content: payload }]); 
 
       for await (const chunk of stream) {
         accumulatedResponse += chunk;
@@ -492,9 +615,13 @@ export default function ChatPage() {
         });
       }
 
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
-      toast.error("An error occurred generating response.");
+      let errorMsg = `An error occurred: ${e.message || 'Unknown error'}`;
+       if (e.name === 'NotAllowedError') {
+           errorMsg = "Multimodal capability (audio/image) is not available or enabled on this system.";
+       }
+      toast.error(errorMsg);
       // Rollback placeholder message
       setCurrentConvo(prev => {
           if (!prev) return null;
@@ -823,7 +950,14 @@ export default function ChatPage() {
 
             {/* Existing Message Mapping Logic */}
             {currentConvo && currentConvo.messages.length > 0 ? (
-              currentConvo.messages.map((msg, index) => <ChatMessage key={`${currentConvo.id}-${index}-${msg.timestamp}`} message={msg} />)
+              currentConvo.messages.map((msg, index) => (
+                <ChatMessage 
+                  key={`${currentConvo.id}-${index}-${msg.timestamp}`} 
+                  message={msg}
+                  personaType={persona.type}
+                  onRewriteClick={() => handleRewriteClick(msg, index)}
+                />
+              ))
             ) : (
                // Only show this default for text personas now
                persona.type === 'text' && (
@@ -835,7 +969,13 @@ export default function ChatPage() {
           </div>
           
           {/* Input Box */}
-          <ChatInput onSubmit={handleSubmitMessage} isLoading={isLoading} personaType={persona.type} />
+          <ChatInput 
+            onSubmit={handleSubmitMessage} 
+            isLoading={isLoading} 
+            personaType={persona.type} 
+            attachedFile={attachedFile}
+            onFileSelect={handleFileSelect}
+          />
         </div>
       );
     }
@@ -898,6 +1038,42 @@ export default function ChatPage() {
         {renderContent()} {/* This contains the main chat UI */}
       </main>
       <Footer />
+      <Dialog open={isRewriteDialogOpen} onOpenChange={setIsRewriteDialogOpen}>
+        <DialogContent className="sm:max-w-[425px] bg-slate-800 border-slate-700">
+          <DialogHeader>
+            <DialogTitle className="text-slate-50">Rewrite Response</DialogTitle>
+            <DialogDescription>
+              Tell the AI how you want this response rewritten.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-1 items-center gap-4">
+              <Label htmlFor="rewrite-instruction" className="text-left text-slate-300">
+                Instruction
+              </Label>
+              <Textarea
+                id="rewrite-instruction"
+                value={rewriteInstruction}
+                onChange={(e) => setRewriteInstruction(e.target.value)}
+                placeholder="e.g., Make it shorter, Explain like I'm 5, Use a more formal tone..."
+                className="col-span-3 bg-slate-700 border-slate-600 min-h-[100px]"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+             <DialogClose asChild>
+                <Button type="button" variant="secondary">Cancel</Button>
+             </DialogClose>
+            <Button
+              type="button"
+              onClick={handleConfirmRewrite}
+              disabled={!rewriteInstruction.trim() || isRewriting}
+            >
+              {isRewriting ? "Rewriting..." : "Rewrite"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
