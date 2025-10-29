@@ -5,7 +5,7 @@ import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
 import { usePersonas } from '@/hooks/usePersonas';
 import { getPrebuiltPersona, PREBUILT_PERSONAS } from '@/lib/prebuilt-personas';
-import { useLanguageModel } from '@/hooks/useLanguageModel';
+import { useLanguageModel, type ExpectedInput } from '@/hooks/useLanguageModel';
 import { ChatInput } from '@/components/chat/ChatInput';
 import { ChatMessage } from '@/components/chat/ChatMessage';
 import { useEffect, useMemo, useState, useRef, useCallback } from 'react';
@@ -61,7 +61,6 @@ export default function ChatPage() {
   const [speechCoachMode, setSpeechCoachMode] = useState<SpeechCoachMode>('options');
   const [capturedAudioBlobUrl, setCapturedAudioBlobUrl] = useState<string | null>(null);
   const [capturedImageSnapshots, setCapturedImageSnapshots] = useState<string[]>([]); 
-  const [uploadedVideoFile, setUploadedVideoFile] = useState<File | null>(null);
   const [recordingStartTime, setRecordingStartTime] = useState<number | null>(null); 
   const [elapsedTime, setElapsedTime] = useState(0); 
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -85,12 +84,11 @@ export default function ChatPage() {
     status: recorderStatus, // 'idle', 'recording', 'stopped', 'acquiring_media'
     startRecording,
     stopRecording,
-    mediaBlobUrl, // URL available after stopRecording
     previewStream, // Live stream for the video preview
   } = useReactMediaRecorder({
     video: true,
     audio: true,
-    onStop: (blobUrl, blob) => {
+    onStop: (blobUrl) => {
       console.log("Recording stopped. Audio Blob URL:", blobUrl);
       setCapturedAudioBlobUrl(blobUrl);
       setSpeechCoachMode('previewing'); 
@@ -154,33 +152,41 @@ export default function ChatPage() {
   // --- Effect 2: Manage AI Session Lifecycle ---
   useEffect(() => {
     // Only proceed if we have a persona and it's a text type
-    if (!persona || persona.type !== 'text') {
-       // If session exists, destroy it when switching to non-text persona or leaving page
-       if (session) {
-          // TODO: Implement actual session destruction/cancellation if API allows
-          console.log("Destroying session (placeholder) due to persona change/unmount.");
-          setSession(null); 
-       }
-       return; 
+    if (!persona || persona.type === 'speechcoach') {
+        if (session) { session.destroy(); setSession(null); }
+        return;
     }
 
     // Initialize session only if model is ready AND no session exists yet
     if (availability === 'available' && !session && !isSessionLoading) {
+      console.log(`Effect 2: Model available for ${persona.type}, creating session.`);
       setIsSessionLoading(true);
       const loadingToastId = toast.loading("Initializing AI session...");
 
       // Pass history ONLY if we have a current conversation loaded
       const initialMessages = currentConvo?.messages.map(m => ({ role: m.role, content: m.content })) || [];
 
-      createChatSession(persona.systemPrompt, initialMessages)
+      let expectedInputs: ExpectedInput[] | undefined = undefined;
+      if (persona.type === 'image') {
+          expectedInputs = [{ type: 'image' }, { type: 'text' }];
+      } else if (persona.type === 'audio') {
+          expectedInputs = [{ type: 'audio' }, { type: 'text' }];
+      } else { // Text persona (allows both image/audio uploads + text)
+          expectedInputs = [{ type: 'image' }, { type: 'audio' }, { type: 'text' }];
+      }
+
+      createChatSession(persona.systemPrompt, initialMessages, expectedInputs)
         .then(newSession => {
           setSession(newSession); // Set the session state
           toast.success("AI session initialized!", { id: loadingToastId });
         })
         .catch(e => {
           console.error("Session creation failed:", e);
-          toast.error("Failed to create AI session.", { id: loadingToastId });
-          // Optionally set an error state here
+          let errorMsg = `Failed to create AI session: ${e.message}`;
+           if (e.name === 'NotAllowedError') { // Catch specific error here too
+               errorMsg = `Session creation failed: ${persona.type} capability not available.`;
+           }
+          toast.error(errorMsg, { id: loadingToastId });
         })
         .finally(() => {
           setIsSessionLoading(false); // Ensure loading state is turned off
@@ -219,8 +225,13 @@ export default function ChatPage() {
   };
 
   // --- Placeholder Function for handling the actual rewrite ---
-  const handleConfirmRewrite = async () => {
-     if (!messageToRewrite || !rewriteInstruction || !currentConvo || !persona || !session) return;
+  const handleConfirmRewrite = useCallback(async () => {
+     if (!messageToRewrite || !rewriteInstruction || !currentConvo || !persona || !session) {
+      toast.error("Cannot rewrite: Missing information.");
+      setIsRewriteDialogOpen(false);
+      setMessageToRewrite(null);
+      return;
+     };
 
      setIsRewriting(true);
      setIsRewriteDialogOpen(false); // Close dialog immediately
@@ -231,42 +242,59 @@ export default function ChatPage() {
      // Find the user message that prompted this response (if available)
      const precedingUserMessage = currentConvo.messages[messageIndex - 1]?.role === 'user'
          ? currentConvo.messages[messageIndex - 1].content
-         : "[Context not directly available]";
+         : "[Context: No preceding user message found in history]";
 
      const rewriteMetaPrompt = `
+      You are acting as the persona defined below. Your task is to rewrite a previous response based on a user's instruction.
+      ---
       [System Prompt of Persona]
       ${persona.systemPrompt}
-
+      ---
       [Original User Query that led to the response]
       ${precedingUserMessage}
-
+      ---
       [Original Assistant Response to Rewrite]
       ${originalMessage.content}
-
+      ---
       [User's Rewrite Instruction]
-      ${rewriteInstruction}
-
+      ${rewriteInstruction.trim()}
+      ---
       [Task]
-      Rewrite the "[Original Assistant Response to Rewrite]" section strictly following the "[User's Rewrite Instruction]". Maintain the persona defined in "[System Prompt of Persona]". Output only the rewritten text, without any introductory phrases like "Here is the rewritten text:".
+      Rewrite the text from the "[Original Assistant Response to Rewrite]" section strictly following the "[User's Rewrite Instruction]".
+      Adhere to the persona defined in "[System Prompt of Persona]".
+      Output *only* the rewritten text. Do *not* include any extra phrases like "Here's the rewritten version:".
       `;
 
+      let rewrittenContent = "";
      try {
          // Use promptStreaming (or prompt if preferred) - using streaming here
          const stream = await session.promptStreaming(rewriteMetaPrompt);
-         let rewrittenContent = "";
 
          for await (const chunk of stream) {
              rewrittenContent += chunk;
              // Update the message content in real-time (optional, can just update at end)
              setCurrentConvo(prev => {
-                 if (!prev) return null;
-                 const updatedMessages = [...prev.messages];
-                 // Ensure index is valid
-                 if (messageIndex >= 0 && messageIndex < updatedMessages.length) {
-                     updatedMessages[messageIndex] = { ...updatedMessages[messageIndex], content: rewrittenContent };
-                 }
-                 return { ...prev, messages: updatedMessages };
-             });
+                    if (!prev) return null;
+                    const updatedMessages = [...prev.messages];
+                    // Ensure index is valid and prevent modifying if message changed
+                    if (messageIndex >= 0 && messageIndex < updatedMessages.length && updatedMessages[messageIndex].timestamp === originalMessage.timestamp) {
+                         // Apply stutter removal to the chunk relative to the current rewritten content
+                         let currentAccumulated = updatedMessages[messageIndex].content;
+                         let cleanedChunk = chunk;
+                         const lastWordMatch = currentAccumulated.match(/(\w+)$/);
+                         const firstWordMatch = chunk.match(/^(\w+)/);
+                         if (lastWordMatch && firstWordMatch && lastWordMatch[1] === firstWordMatch[1]) {
+                             const endsWithSpaceAndWord = /\s\w+$/.test(currentAccumulated);
+                             const startsWithWordAndSpace = /^\w+\s/.test(chunk);
+                             if (endsWithSpaceAndWord || startsWithWordAndSpace) {
+                                 cleanedChunk = chunk.substring(firstWordMatch[1].length).trimStart();
+                             }
+                         }
+                        // Update content with cleaned chunk
+                        updatedMessages[messageIndex] = { ...updatedMessages[messageIndex], content: currentAccumulated + cleanedChunk };
+                    }
+                    return { ...prev, messages: updatedMessages };
+                });
          }
 
          // Final cleanup and save
@@ -274,7 +302,7 @@ export default function ChatPage() {
          setCurrentConvo(prev => {
              if (!prev) return null;
              const finalMessages = [...prev.messages];
-              if (messageIndex >= 0 && messageIndex < finalMessages.length) {
+              if (messageIndex >= 0 && messageIndex < finalMessages.length && finalMessages[messageIndex].timestamp === originalMessage.timestamp) {
                   finalMessages[messageIndex] = {
                       ...finalMessages[messageIndex],
                       content: finalRewrittenContent,
@@ -290,19 +318,29 @@ export default function ChatPage() {
 
      } catch (error: any) {
          console.error("Error during rewrite:", error);
-         toast.error(`Rewrite failed: ${error.message || 'Unknown error'}`, { id: loadingToastId });
-         // Optional: Revert message content if rewrite fails? (More complex state needed)
+            let errorMsg = `Rewrite failed: ${error.message || 'Unknown error'}`;
+            if (error.name === 'NotAllowedError') { // Handle potential capability error
+               errorMsg = `Rewrite failed: Necessary capability not available.`;
+            }
+            toast.error(errorMsg, { id: loadingToastId });
      } finally {
          setIsRewriting(false);
          setMessageToRewrite(null); // Clear the message being rewritten
+         setRewriteInstruction("");
      }
-  };
+  }, [messageToRewrite, rewriteInstruction, currentConvo, persona, session, saveConversation]);
 
   // --- NEW: Analyze Rehearsal Function ---
   const analyzeRehearsal = useCallback(async () => {
     if (!persona || !capturedAudioBlobUrl || capturedImageSnapshots.length === 0) {
       toast.error("Missing audio or image data for analysis.");
       return;
+    }
+
+    const isPrebuilt = PREBUILT_PERSONAS.some(p => p.id === persona.id);
+    if (isPrebuilt && !personaExists(persona.id)) {
+       console.log(`Adding pre-built persona ${persona.name} to custom list (triggered by analysis).`);
+       addPersona(persona);
     }
 
     setIsAnalyzing(true);
@@ -351,7 +389,6 @@ export default function ChatPage() {
       // 4. Call the AI (Using non-streaming `prompt` for analysis result)
       const result = await session.prompt(multimodalPromptPayload);
       resultText = result || "Analysis complete, but no text feedback received.";
-      console.log("Analysis Result:", result);
       setAnalysisResult(resultText); // Handle empty result
       analysisSuccess = true;
       toast.success("Analysis complete!", { id: loadingToastId });
@@ -415,7 +452,7 @@ export default function ChatPage() {
     }
   }, [
       persona, capturedAudioBlobUrl, capturedImageSnapshots,
-      createMultimodalSession, setSpeechCoachMode, saveConversation, navigate // Keep dependencies minimal
+      createMultimodalSession, setSpeechCoachMode, saveConversation, navigate, addPersona, personaExists
   ]);
 
   // --- Snapshot Logic ---
@@ -525,10 +562,15 @@ export default function ChatPage() {
     }
 
     let userMessageContent = userInput;
+    if (file) { userMessageContent += `\n[Attached: ${file.name}]`; }
 
     const newUserMessage: Message = { role: 'user', content: userMessageContent, timestamp: Date.now() };
 
-    let payload: any[] = [{ type: 'text', value: userInput }]; // Start with text
+    let payloadParts: { type: 'text' | 'image' | 'audio', value: string | Blob }[] = [];
+    if (userInput.trim()) {
+        payloadParts.push({ type: 'text', value: userInput.trim() });
+    }
+
     let mediaType: 'audio' | 'image' | null = null; // Track media type
 
     if (file) {
@@ -538,7 +580,7 @@ export default function ChatPage() {
                     file.type.startsWith('audio/') ? 'audio' : null;
 
         if (mediaType) {
-            payload.unshift({ type: mediaType, value: mediaBlob }); // Add media *before* text
+            payloadParts.unshift({ type: mediaType, value: mediaBlob }); // Add media *before* text
         } else {
             toast.error("Unsupported file type attached.");
             return; // Don't proceed if file type is wrong
@@ -583,8 +625,8 @@ export default function ChatPage() {
 
     try {
       // Pass only the new user message to promptStreaming (history is already in the session)
-      console.log("Sending multimodal payload:", payload);
-      const stream = await session.promptStreaming([{ role: 'user', content: payload }]); 
+      console.log("Sending multimodal payload:", payloadParts);
+      const stream = await session.promptStreaming([{ role: 'user', content: payloadParts }]); 
 
       for await (const chunk of stream) {
         accumulatedResponse += chunk;

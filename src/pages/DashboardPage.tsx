@@ -5,7 +5,6 @@ import { usePersonas } from "@/hooks/usePersonas";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Footer } from "@/components/layout/Footer";
 import { Navbar } from "@/components/layout/Navbar";
-import { PREBUILT_PERSONAS } from "@/lib/prebuilt-personas";
 import type { Persona } from "@/lib/types";
 import { useState } from "react";
 import { Trash2 } from "lucide-react";
@@ -32,9 +31,6 @@ export default function DashboardPage() {
     setIsConfirmOpen(false);
   };
 
-  // Filter out pre-built persona placeholders if they exist in custom list
-  const customPersonas = personas.filter(p => !PREBUILT_PERSONAS.some(pre => pre.id === p.id));
-
   return (
     <>
       <Navbar />
@@ -48,7 +44,7 @@ export default function DashboardPage() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {customPersonas.map((persona) => ( // Use filtered list
+            {personas.map((persona) => ( // Use filtered list
               <div key={persona.id} className="relative group"> {/* Added relative container */}
                 <Link to={`/chat/${persona.id}`}>
                   <Card className="bg-slate-800 border-slate-700 hover:bg-slate-700 h-full"> {/* Ensure cards are same height */}

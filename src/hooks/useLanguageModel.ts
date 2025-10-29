@@ -11,7 +11,7 @@ interface ModelParams {
   maxTemperature: number;
 }
 
-interface ExpectedInput {
+export interface ExpectedInput {
   type: 'text' | 'image' | 'audio';
   languages?: string[];
 }
@@ -69,36 +69,66 @@ export function useLanguageModel() {
 
   // Public function to trigger the download
   const downloadModel = useCallback(async () => {
-    if (availability !== 'downloadable') return;
+    // Ensure LanguageModel exists and has the create method
+    const LanguageModelAPI = (window as any).LanguageModel; // Adjust 'LanguageModel' as needed
+    if (availability !== 'downloadable' || typeof LanguageModelAPI?.create !== 'function') {
+        console.warn("Download cannot start: Status is not 'downloadable' or API is missing.");
+        return;
+    }
 
     setAvailability('downloading');
+    setDownloadProgress(0); // Reset progress at the start
+
     try {
-      // Create a session to trigger the download, with a monitor
-      await LanguageModel.create({
-        monitor(m: any) {
-          m.addEventListener('downloadprogress', (e: any) => {
-            const progress = Math.round((e.loaded / e.total) * 100);
-            setDownloadProgress(progress);
-          });
-        },
-      });
-      setAvailability('available'); // Download complete
-      setDownloadProgress(100);
+        console.log("Attempting to create session to trigger/monitor download...");
+        // Create a session to trigger the download, with a monitor
+        await LanguageModelAPI.create({
+            // Add any required options like expectedInputLanguages if needed by .create()
+            // expectedInputLanguages: ['en'],
+            // expectedOutputLanguage: 'en',
+            monitor(m: any) {
+                m.addEventListener('downloadprogress', (e: any) => {
+                    // Calculate progress based on loaded/total if available
+                    let progress = 0;
+                    if (e.total > 0) {
+                        progress = Math.round((e.loaded / e.total) * 100);
+                    } else {
+                        // Fallback if e.total isn't provided (might happen in some cases)
+                        // This provides some visual feedback even without exact percentage
+                        progress = Math.min(downloadProgress + 5, 99); // Increment slowly towards 99
+                    }
+                    console.log(`Download progress: ${progress}%`);
+                    setDownloadProgress(progress);
+                });
+            },
+        });
+
+        // --- THIS IS THE KEY CHANGE ---
+        // Only set to 'available' AFTER the create() promise successfully resolves.
+        console.log("Model create() promise resolved. Setting availability to 'available'.");
+        setAvailability('available');
+        setDownloadProgress(100); // Ensure progress shows 100% on success
+
     } catch (e) {
-      console.error("Error downloading model:", e);
-      setAvailability('unavailable');
+        console.error("Error during model download/creation:", e);
+        setAvailability('unavailable'); // Or maybe back to 'downloadable' to allow retry?
+        setDownloadProgress(0); // Reset progress on error
     }
-  }, [availability]);
+    // Dependency array should include all state/props read inside, plus potentially LanguageModelAPI if it could change (unlikely for global)
+  }, [availability, setAvailability, setDownloadProgress, downloadProgress]);
 
   // Public function to create a new, ready-to-use chat session
   const createChatSession = useCallback(async (
     systemPrompt: string,
-    history: { role: string; content: string }[] = []
+    history: { role: string; content: string }[] = [],
+    expectedInputsOverride?: ExpectedInput[]
   ) => {
     if (availability !== 'available' || !modelParams) {
       throw new Error("Model is not available or params not loaded.");
     }
     
+    console.log("Creating session. Override inputs:", expectedInputsOverride);
+
     const newTopK = Math.min(modelParams.maxTopK, 32);
     const newTemperature = modelParams.defaultTemperature;
 
@@ -107,20 +137,23 @@ export function useLanguageModel() {
       ...history
     ];
 
+    const inputs = expectedInputsOverride || [{ type: 'text', languages: ['en'] }];
+    const outputs: ExpectedOutput[] = [{ type: 'text', languages: ['en'] }];
+
     // As per the docs, use initialPrompts to set the system persona
     const session = await LanguageModel.create({
       initialPrompts: initialPrompts,
       topK: newTopK,
       temperature: newTemperature,
-      expectedInputs: [{ type: 'text', languages: ['en'] }],
-      expectedOutputs: [{ type: 'text', languages: ['en'] }],
+      expectedInputs: inputs,
+      expectedOutputs: outputs,
     });
 
     const sessionWithDestroy = session as any; 
     sessionWithDestroy.destroy = () => {
        // Placeholder: The actual Chrome API might have a different way to destroy/clean up.
        // For now, this allows our component cleanup logic to work.
-       console.log("Session destroy called (placeholder)"); 
+       console.log("Session destroy called"); 
     };
 
     return sessionWithDestroy;
