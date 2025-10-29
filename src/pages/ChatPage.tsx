@@ -209,19 +209,19 @@ export default function ChatPage() {
     }
 
     setIsAnalyzing(true);
-    setAnalysisResult(null); // Clear previous results
-    setSpeechCoachMode('analyzing'); // Update UI mode
+    setAnalysisResult(null);
+    setSpeechCoachMode('analyzing');
     const loadingToastId = toast.loading("Analyzing rehearsal...");
 
-    let session: any = null; // Use 'any' for now
+    let session: any = null;
+    let analysisSuccess = false; // Flag to track success
+    let resultText = "";
 
     try {
-      // 1. Prepare Media Data
-      // Fetch the audio Blob
+      // 1. Prepare Media Data (Blobs)
       const audioResponse = await fetch(capturedAudioBlobUrl);
       const audioBlob = await audioResponse.blob();
 
-      // Convert image data URLs to Blobs
       const imageBlobs = await Promise.all(
         capturedImageSnapshots.map(dataUrl => dataUrlToBlob(dataUrl))
       );
@@ -234,44 +234,91 @@ export default function ChatPage() {
 
       // 2. Create Multimodal Session
       session = await createMultimodalSession(
-        persona.systemPrompt, // Use the Speech Coach's system prompt
-        [ // Define expected inputs
-          { type: 'audio' },
-          { type: 'image' }, // Can list image multiple times if needed, or once is fine
-          { type: 'text' } // For our final text prompt
-        ]
+        persona.systemPrompt,
+        [ { type: 'audio' }, { type: 'image' }, { type: 'text' } ] // Keep expected inputs simple
       );
 
-      // 3. Construct the Multimodal Prompt Array
-      const multimodalPrompt = [
+      // 3. Construct Multimodal Prompt Array (Refined Structure based on demos)
+      // Send each piece of media as separate 'user' role input, followed by the text prompt.
+      const multimodalPromptPayload = [
+        // Audio first
         { role: 'user', content: [{ type: 'audio', value: audioBlob }] },
-        // Add each image blob
+        // Then images
         ...validImageBlobs.map(imgBlob => ({ role: 'user', content: [{ type: 'image', value: imgBlob }] })),
-        // Add the final text prompt instructing the AI
-        { role: 'user', content: [{ type: 'text', value: "Analyze the provided audio recording and image snapshots based on your system prompt instructions. Provide constructive feedback." }] }
+        // Final text instruction
+        { role: 'user', content: [{ type: 'text', value: "Analyze the provided audio recording and image snapshots based on your system prompt instructions. Provide constructive feedback on clarity, confidence, tone, and visual cues (like posture or facial expression if visible)." }] }
       ];
-      console.log("Sending multimodal prompt structure:", multimodalPrompt);
+      console.log("Sending multimodal prompt payload:", multimodalPromptPayload);
 
 
-      // 4. Call the AI (non-streaming for simplicity)
-      // Note: The API might expect a different structure - check docs if this fails
-      const result = await session.prompt(multimodalPrompt);
-
+      // 4. Call the AI (Using non-streaming `prompt` for analysis result)
+      const result = await session.prompt(multimodalPromptPayload);
+      resultText = result || "Analysis complete, but no text feedback received.";
       console.log("Analysis Result:", result);
-      setAnalysisResult(result);
+      setAnalysisResult(resultText); // Handle empty result
+      analysisSuccess = true;
       toast.success("Analysis complete!", { id: loadingToastId });
+
+      // --- Save Analysis as a Conversation ---
+      if (analysisSuccess) {
+         const now = Date.now();
+         // Create placeholder user message
+         const userPseudoMessage: Message = {
+             role: 'user',
+             content: `[Speech Rehearsal Analyzed on ${new Date(now).toLocaleDateString()}]`,
+             timestamp: now -1 // Slightly earlier timestamp
+         };
+         // Create assistant message with the result
+         const assistantResultMessage: Message = {
+             role: 'assistant',
+             content: resultText,
+             timestamp: now
+         };
+         // Generate title (could refine this later)
+         const convoTitle = `Speech Analysis - ${new Date(now).toLocaleString()}`;
+
+         // Create the conversation object
+         const newAnalysisConvo: Conversation = {
+             id: crypto.randomUUID(),
+             personaId: persona.id,
+             title: convoTitle,
+             messages: [userPseudoMessage, assistantResultMessage],
+             lastEdited: now
+         };
+
+         // Save it using the hook function
+         saveConversation(newAnalysisConvo);
+         console.log("Saved analysis result as conversation:", newAnalysisConvo.id);
+
+         // Navigate to the new conversation's URL
+         navigate(`/chat/${persona.id}?convo=${newAnalysisConvo.id}`, { replace: true });
+         setSpeechCoachMode('options'); // Reset mode for the next interaction
+      }
 
     } catch (error: any) {
       console.error("Error during analysis:", error);
-      toast.error(`Analysis failed: ${error.message || 'Unknown error'}`, { id: loadingToastId });
-      setSpeechCoachMode('previewing'); // Go back to preview on error
+
+      // --- Graceful Error Handling ---
+      let errorMessage = `Analysis failed: ${error.message || 'Unknown error'}`;
+      if (error.name === 'NotAllowedError') {
+         errorMessage = "Analysis failed: Multimodal capability (audio/image) is not available or enabled on this system. Please check browser flags and system requirements.";
+         setAnalysisResult(errorMessage); // Display error message in the result area
+      } else {
+         setAnalysisResult(`Analysis Error: ${error.message}`); // Display other errors too
+      }
+      toast.error(errorMessage, { id: loadingToastId });
+      setSpeechCoachMode('analyzing'); // Stay in analyzing mode to show the error message
+      // We no longer go back to 'previewing' on error
+      // setSpeechCoachMode('previewing');
+      // --- End Error Handling ---
+
     } finally {
-      setIsAnalyzing(false);
-      session?.destroy(); // Clean up the session
+      setIsAnalyzing(false); // Ensure loading stops even on error
+      session?.destroy();
     }
   }, [
       persona, capturedAudioBlobUrl, capturedImageSnapshots,
-      createMultimodalSession, setSpeechCoachMode // Add dependencies
+      createMultimodalSession, setSpeechCoachMode, saveConversation, navigate // Keep dependencies minimal
   ]);
 
   // --- Snapshot Logic ---
@@ -510,6 +557,26 @@ export default function ChatPage() {
    const renderContent = () => {
     // --- Speech Coach UI Logic ---
     if (persona?.type === 'speechcoach') {
+
+      // --- Display Saved Analysis ---
+      if (currentConvo) {
+         // Find the assistant message (should be the second one)
+         const savedResult = currentConvo.messages.find(m => m.role === 'assistant')?.content;
+         return (
+            <div className="p-4 bg-slate-800 rounded-lg border border-slate-700 space-y-4">
+               <h3 className="text-lg font-semibold">Saved Analysis: {currentConvo.title}</h3>
+               <div className="p-3 bg-slate-900 rounded border border-slate-700 max-h-96 overflow-y-auto">
+                  <pre className="text-sm text-slate-200 whitespace-pre-wrap font-sans">
+                    {savedResult || "Could not load analysis content."}
+                  </pre>
+               </div>
+               <Button variant="outline" className="w-full cursor-pointer" onClick={handleNewChat}>
+                   <Video className="mr-2 h-4 w-4" /> Start New Rehearsal
+               </Button>
+            </div>
+         );
+      }
+
       // --- State: Showing Initial Options ---
       if (speechCoachMode === 'options') {
         return (
@@ -519,10 +586,10 @@ export default function ChatPage() {
               How would you like to provide your speech recording?
             </p>
             <div className="flex flex-col sm:flex-row justify-center gap-4 pt-2">
-              <Button onClick={() => setSpeechCoachMode('uploading')}>
+              <Button className='cursor-pointer' onClick={() => setSpeechCoachMode('uploading')}>
                 <Upload className="mr-2 h-4 w-4" /> Upload Video File
               </Button>
-              <Button onClick={() => setSpeechCoachMode('capturing')}>
+              <Button className='cursor-pointer' onClick={() => setSpeechCoachMode('capturing')}>
                 <Video className="mr-2 h-4 w-4" /> Capture Live Rehearsal
               </Button>
             </div>
@@ -537,9 +604,9 @@ export default function ChatPage() {
           <div className="text-center p-10 bg-slate-800 rounded-lg border border-slate-700">
             <h3 className="text-lg font-semibold">Upload Video</h3>
             <p className="text-slate-400 mt-2">
-              (File input UI coming soon...)
+              Upload and analysis functionality planned for a future update.
             </p>
-            <Button variant="outline" className="mt-4" onClick={() => setSpeechCoachMode('options')}>
+            <Button variant="outline" className="mt-4 cursor-pointer" onClick={() => setSpeechCoachMode('options')}>
               Back to options
             </Button>
           </div>
@@ -577,6 +644,7 @@ export default function ChatPage() {
             {/* Controls */}
             <div className="flex justify-center gap-4">
               <Button
+                className='cursor-pointer'
                 variant="outline"
                 onClick={() => setSpeechCoachMode('options')}
                 disabled={isRecording || isAcquiring}
@@ -584,11 +652,11 @@ export default function ChatPage() {
                 Cancel
               </Button>
               {!isRecording ? (
-                <Button onClick={handleStartCapture} disabled={isAcquiring}>
+                <Button className='cursor-pointer' onClick={handleStartCapture} disabled={isAcquiring}>
                   <CircleDot className="mr-2 h-4 w-4" /> Start Recording
                 </Button>
               ) : (
-                <Button variant="destructive" onClick={handleStopCaptureManual}>
+                <Button variant="destructive" className='cursor-pointer' onClick={handleStopCaptureManual}>
                   <Square className="mr-2 h-4 w-4" /> Stop Recording
                 </Button>
               )}
@@ -647,21 +715,24 @@ export default function ChatPage() {
 
       // --- NEW: Displaying Analysis Result ---
       if (speechCoachMode === 'analyzing' && !isAnalyzing && analysisResult) {
+         const isErrorResult = analysisResult.startsWith("Analysis failed:") || analysisResult.startsWith("Analysis Error:");
          return (
            <div className="p-4 bg-slate-800 rounded-lg border border-slate-700 space-y-4">
-             <h3 className="text-lg font-semibold">Analysis Feedback</h3>
+             <h3 className={`text-lg font-semibold ${isErrorResult ? 'text-red-400' : ''}`}>
+               {isErrorResult ? "Analysis Problem" : "Analysis Feedback"}
+             </h3>
              <div className="p-3 bg-slate-900 rounded border border-slate-700 max-h-96 overflow-y-auto">
-                <pre className="text-sm text-slate-200 whitespace-pre-wrap font-sans">
+                <pre className={`text-sm ${isErrorResult ? 'text-red-300' : 'text-slate-200'} whitespace-pre-wrap font-sans`}>
                   {analysisResult}
                 </pre>
              </div>
              <Button variant="outline" className="w-full cursor-pointer" onClick={() => {
-                 setSpeechCoachMode('options');
-                 setAnalysisResult(null); // Clear result
+                 setSpeechCoachMode('options'); // Go back to start
+                 setAnalysisResult(null);
                  setCapturedAudioBlobUrl(null);
                  setCapturedImageSnapshots([]);
              }}>
-                 Done / Record Again
+                 {isErrorResult ? "Back to Options" : "Done / Record Again"}
              </Button>
            </div>
          );
@@ -688,9 +759,9 @@ export default function ChatPage() {
         <div className="text-center p-10 bg-slate-800 rounded-lg">
           <h3 className="text-lg font-semibold text-yellow-400">AI Model Download Required</h3>
           <p className="text-slate-400 mt-2">
-            To use Swa-AI, you must download the on-device AI model (approx. 300MB).
+            To use Swa-AI, you must download the on-device AI model.
           </p>
-          <Button onClick={downloadModel} className="mt-4">
+          <Button onClick={downloadModel} className="mt-4 cursor-pointer">
             Download Model
           </Button>
         </div>
@@ -717,7 +788,7 @@ export default function ChatPage() {
     }
     
     // Session is initializing
-    if (isSessionLoading) {
+    if (isSessionLoading && (persona?.type === 'text' || persona?.type === 'audio' || persona?.type === 'image')) {
        return (
         <div className="text-center p-10 bg-slate-800 rounded-lg">
           <p className="text-slate-400">Initializing AI session... please wait.</p>
@@ -726,7 +797,7 @@ export default function ChatPage() {
     }
     
     // Ready State (Model available, session ready or convo loaded)
-    if (availability === 'available' && persona?.type === 'text') {
+    if (availability === 'available' && (persona?.type === 'text' || persona?.type === 'audio' || persona?.type === 'image')) {
        // Check if session creation failed but model is available
        if (!session && !isSessionLoading) {
            return (
@@ -742,30 +813,42 @@ export default function ChatPage() {
         <div className="flex flex-col h-[calc(100vh-200px)]"> {/* Adjust height as needed */}
           {/* Message List */}
           <div ref={chatContainerRef} className="flex-1 overflow-y-auto space-y-1 p-4 mb-4 rounded-lg bg-slate-800/30 border border-slate-700">
+            {/* --- NEW: Placeholder for Audio/Image Personas --- */}
+            {currentConvo?.messages.length === 0 && (persona.type === 'audio' || persona.type === 'image') && (
+                <p className="text-center text-slate-400 py-4 italic">
+                  This persona works best with {persona.type}. Use the '+' button to add media or start by typing.
+                </p>
+            )}
+            {/* --- End NEW --- */}
+
+            {/* Existing Message Mapping Logic */}
             {currentConvo && currentConvo.messages.length > 0 ? (
               currentConvo.messages.map((msg, index) => <ChatMessage key={`${currentConvo.id}-${index}-${msg.timestamp}`} message={msg} />)
             ) : (
-              <p className="text-center text-slate-400 py-4">
-                Start a new chat with {persona.name}.
-              </p>
+               // Only show this default for text personas now
+               persona.type === 'text' && (
+                 <p className="text-center text-slate-400 py-4">
+                  Start a new chat with {persona.name}.
+                 </p>
+               )
             )}
           </div>
           
           {/* Input Box */}
-          <ChatInput onSubmit={handleSubmitMessage} isLoading={isLoading} />
+          <ChatInput onSubmit={handleSubmitMessage} isLoading={isLoading} personaType={persona.type} />
         </div>
       );
     }
 
     // Session creation failed but model is available (for text personas)
-    if (availability === 'available' && !session && !isSessionLoading && persona?.type === 'text') {
+    if (availability === 'available' && !session && !isSessionLoading && (persona?.type === 'text' || persona?.type === 'audio' || persona?.type === 'image')) {
        return (
         <div className="text-center p-10 bg-slate-800 rounded-lg border border-red-900">
           <h3 className="text-lg font-semibold text-red-400">Session Failed</h3>
           <p className="text-slate-400 mt-2">
             Could not initialize the AI chat session for this persona. Please try refreshing the page or starting a new chat.
           </p>
-          <Button variant="outline" className="mt-4" onClick={() => window.location.reload()}>
+          <Button variant="outline" className="mt-4 cursor-pointer" onClick={() => window.location.reload()}>
             Refresh Page
           </Button>
         </div>
@@ -787,7 +870,7 @@ export default function ChatPage() {
         <Navbar />
         <main className="container mx-auto max-w-2xl p-4 text-center py-8">
           <h1 className="text-2xl font-bold text-red-400">Persona not found</h1>
-          <Button variant="link" asChild>
+          <Button variant="link" className='cursor-pointer' asChild>
             <Link to="/">Go back to Home</Link>
           </Button>
         </main>
@@ -804,7 +887,7 @@ export default function ChatPage() {
           <h1 className="text-3xl font-bold">
             Chat with {persona.name}
           </h1>
-          <Button variant="outline" size="icon" onClick={handleNewChat} title="Start New Chat">
+          <Button className='cursor-pointer' variant="outline" size="icon" onClick={handleNewChat} title="Start New Chat">
              <ListRestart className="h-4 w-4" />
           </Button>
         </div>
