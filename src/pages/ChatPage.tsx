@@ -37,7 +37,7 @@ export default function ChatPage() {
     createNewConversation,
     getConversationsForPersona
   } = usePersonas();
-  
+
   const persona: Persona | undefined = useMemo(() => {
     if (!personaId) return undefined;
     const prebuilt = getPrebuiltPersona(personaId);
@@ -50,17 +50,17 @@ export default function ChatPage() {
   // --- State ---
   const [currentConvo, setCurrentConvo] = useState<Conversation | null>(null);
   const [session, setSession] = useState<ChatSession | null>(null);
-  const [isLoading, setIsLoading] = useState(false); 
-  const [isSessionLoading, setIsSessionLoading] = useState(false); 
+  const [isLoading, setIsLoading] = useState(false);
+  const [isSessionLoading, setIsSessionLoading] = useState(false);
   const chatContainerRef = useRef<HTMLDivElement>(null);
 
   // --- State for Speech Coach UI ---
   type SpeechCoachMode = 'options' | 'uploading' | 'capturing' | 'previewing' | 'analyzing';
   const [speechCoachMode, setSpeechCoachMode] = useState<SpeechCoachMode>('options');
   const [capturedAudioBlobUrl, setCapturedAudioBlobUrl] = useState<string | null>(null);
-  const [capturedImageSnapshots, setCapturedImageSnapshots] = useState<string[]>([]); 
-  const [recordingStartTime, setRecordingStartTime] = useState<number | null>(null); 
-  const [elapsedTime, setElapsedTime] = useState(0); 
+  const [capturedImageSnapshots, setCapturedImageSnapshots] = useState<string[]>([]);
+  const [recordingStartTime, setRecordingStartTime] = useState<number | null>(null);
+  const [elapsedTime, setElapsedTime] = useState(0);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<string | null>(null);
 
@@ -74,24 +74,24 @@ export default function ChatPage() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const snapshotIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const stopTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null); 
+  const stopTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
 
   // --- Media Recorder Hook ---
   const {
-    status: recorderStatus, 
+    status: recorderStatus,
     startRecording,
     stopRecording,
-    previewStream, 
+    previewStream,
   } = useReactMediaRecorder({
     video: true,
     audio: true,
     onStop: (blobUrl) => {
       console.log("Recording stopped. Audio Blob URL:", blobUrl);
       setCapturedAudioBlobUrl(blobUrl);
-      setSpeechCoachMode('previewing'); 
+      setSpeechCoachMode('previewing');
     },
-    askPermissionOnMount: false, 
+    askPermissionOnMount: false,
   });
 
   // --- Effect to update the timer display ---
@@ -102,10 +102,10 @@ export default function ChatPage() {
         setElapsedTime(Math.floor((Date.now() - recordingStartTime) / 1000));
       }, 1000);
     } else {
-      setElapsedTime(0); 
+      setElapsedTime(0);
     }
     return () => {
-      if (interval) clearInterval(interval); 
+      if (interval) clearInterval(interval);
     };
   }, [recorderStatus, recordingStartTime]);
 
@@ -119,7 +119,7 @@ export default function ChatPage() {
     }
   }, [previewStream]);
 
-  
+
   // --- Determine Conversation ID from URL ---
   const convoId = useMemo(() => {
     const params = new URLSearchParams(location.search);
@@ -127,35 +127,34 @@ export default function ChatPage() {
   }, [location.search]);
 
   const pastConversations = useMemo(() => {
-     return personaId ? getConversationsForPersona(personaId) : [];
+    return personaId ? getConversationsForPersona(personaId) : [];
   }, [personaId, getConversationsForPersona]);
 
 
   // --- Effect: Load Conversation Data ---
   useEffect(() => {
     const loadedConvo = convoId ? getConversation(convoId) : null;
-    
+
     // Validate if the loaded convo belongs to the current persona
     if (loadedConvo && loadedConvo.personaId !== personaId) {
       setCurrentConvo(null);
-      navigate(`/chat/${personaId}`, { replace: true }); 
+      navigate(`/chat/${personaId}`, { replace: true });
     } else {
-      setCurrentConvo(loadedConvo || null); 
+      setCurrentConvo(loadedConvo || null);
     }
-  }, [personaId, convoId, getConversation, navigate]); 
+  }, [personaId, convoId, getConversation, navigate]);
 
 
   // --- Effect 2: Manage AI Session Lifecycle ---
   useEffect(() => {
     // Only proceed if we have a persona and it's a text type
     if (!persona || persona.type === 'speechcoach') {
-        if (session) { session.destroy(); setSession(null); }
-        return;
+      if (session) { session.destroy(); setSession(null); }
+      return;
     }
 
     // Initialize session only if model is ready AND no session exists yet
     if (availability === 'available' && !session && !isSessionLoading) {
-      console.log(`Effect 2: Model available for ${persona.type}, creating session.`);
       setIsSessionLoading(true);
       const loadingToastId = toast.loading("Initializing AI session...");
 
@@ -164,28 +163,28 @@ export default function ChatPage() {
 
       let expectedInputs: ExpectedInput[] | undefined = undefined;
       if (persona.type === 'image') {
-          expectedInputs = [{ type: 'image' }, { type: 'text' }];
+        expectedInputs = [{ type: 'image' }, { type: 'text' }];
       } else if (persona.type === 'audio') {
-          expectedInputs = [{ type: 'audio' }, { type: 'text' }];
+        expectedInputs = [{ type: 'audio' }, { type: 'text' }];
       } else {
-          expectedInputs = [{ type: 'image' }, { type: 'audio' }, { type: 'text' }];
+        expectedInputs = [{ type: 'image' }, { type: 'audio' }, { type: 'text' }];
       }
 
       createChatSession(persona.systemPrompt, initialMessages, expectedInputs)
         .then(newSession => {
-          setSession(newSession); 
+          setSession(newSession);
           toast.success("AI session initialized!", { id: loadingToastId });
         })
         .catch(e => {
           console.error("Session creation failed:", e);
           let errorMsg = `Failed to create AI session: ${e.message}`;
-           if (e.name === 'NotAllowedError') { 
-               errorMsg = `Session creation failed: ${persona.type} capability not available.`;
-           }
+          if (e.name === 'NotAllowedError') {
+            errorMsg = `Session creation failed: ${persona.type} capability not available.`;
+          }
           toast.error(errorMsg, { id: loadingToastId });
         })
         .finally(() => {
-          setIsSessionLoading(false); 
+          setIsSessionLoading(false);
         });
     }
 
@@ -195,14 +194,14 @@ export default function ChatPage() {
     };
   }, [persona, availability, session, isSessionLoading, currentConvo, createChatSession]);
 
-   // --- Update createChatSession signature in useLanguageModel ---
+  // --- Update createChatSession signature in useLanguageModel ---
 
   // Auto-scroll
   useEffect(() => {
     if (chatContainerRef.current) {
       chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
     }
-  }, [currentConvo?.messages]); 
+  }, [currentConvo?.messages]);
 
   const handleFileSelect = useCallback((file: File | null) => {
     setAttachedFile(file);
@@ -210,30 +209,30 @@ export default function ChatPage() {
 
   const handleRewriteClick = (message: Message, index: number) => {
     setMessageToRewrite({ message, index });
-    setRewriteInstruction(""); 
+    setRewriteInstruction("");
     setIsRewriteDialogOpen(true);
   };
 
   // --- Placeholder Function for handling the actual rewrite ---
   const handleConfirmRewrite = useCallback(async () => {
-     if (!messageToRewrite || !rewriteInstruction || !currentConvo || !persona || !session) {
+    if (!messageToRewrite || !rewriteInstruction || !currentConvo || !persona || !session) {
       toast.error("Cannot rewrite: Missing information.");
       setIsRewriteDialogOpen(false);
       setMessageToRewrite(null);
       return;
-     };
+    };
 
-     setIsRewriting(true);
-     setIsRewriteDialogOpen(false); 
-     const { message: originalMessage, index: messageIndex } = messageToRewrite;
-     const loadingToastId = toast.loading("Rewriting response...");
+    setIsRewriting(true);
+    setIsRewriteDialogOpen(false);
+    const { message: originalMessage, index: messageIndex } = messageToRewrite;
+    const loadingToastId = toast.loading("Rewriting response...");
 
-     // --- Construct the Rewrite Prompt ---
-     const precedingUserMessage = currentConvo.messages[messageIndex - 1]?.role === 'user'
-         ? currentConvo.messages[messageIndex - 1].content
-         : "[Context: No preceding user message found in history]";
+    // --- Construct the Rewrite Prompt ---
+    const precedingUserMessage = currentConvo.messages[messageIndex - 1]?.role === 'user'
+      ? currentConvo.messages[messageIndex - 1].content
+      : "[Context: No preceding user message found in history]";
 
-     const rewriteMetaPrompt = `
+    const rewriteMetaPrompt = `
       You are acting as the persona defined below. Your task is to rewrite a previous response based on a user's instruction.
       ---
       [System Prompt of Persona]
@@ -254,64 +253,64 @@ export default function ChatPage() {
       Output *only* the rewritten text. Do *not* include any extra phrases like "Here's the rewritten version:".
       `;
 
-      let rewrittenContent = "";
-     try {
-         const stream = await session.promptStreaming(rewriteMetaPrompt);
+    let rewrittenContent = "";
+    try {
+      const stream = await session.promptStreaming(rewriteMetaPrompt);
 
-         for await (const chunk of stream) {
-             rewrittenContent += chunk;
-             setCurrentConvo(prev => {
-                    if (!prev) return null;
-                    const updatedMessages = [...prev.messages];
-                    if (messageIndex >= 0 && messageIndex < updatedMessages.length && updatedMessages[messageIndex].timestamp === originalMessage.timestamp) {
-                         let currentAccumulated = updatedMessages[messageIndex].content;
-                         let cleanedChunk = chunk;
-                         const lastWordMatch = currentAccumulated.match(/(\w+)$/);
-                         const firstWordMatch = chunk.match(/^(\w+)/);
-                         if (lastWordMatch && firstWordMatch && lastWordMatch[1] === firstWordMatch[1]) {
-                             const endsWithSpaceAndWord = /\s\w+$/.test(currentAccumulated);
-                             const startsWithWordAndSpace = /^\w+\s/.test(chunk);
-                             if (endsWithSpaceAndWord || startsWithWordAndSpace) {
-                                 cleanedChunk = chunk.substring(firstWordMatch[1].length).trimStart();
-                             }
-                         }
-                        updatedMessages[messageIndex] = { ...updatedMessages[messageIndex], content: currentAccumulated + cleanedChunk };
-                    }
-                    return { ...prev, messages: updatedMessages };
-                });
-         }
-
-         // Final cleanup and save
-         const finalRewrittenContent = rewrittenContent.replace(/\n{3,}/g, '\n\n').trimEnd();
-         setCurrentConvo(prev => {
-             if (!prev) return null;
-             const finalMessages = [...prev.messages];
-              if (messageIndex >= 0 && messageIndex < finalMessages.length && finalMessages[messageIndex].timestamp === originalMessage.timestamp) {
-                  finalMessages[messageIndex] = {
-                      ...finalMessages[messageIndex],
-                      content: finalRewrittenContent,
-                      timestamp: Date.now()
-                  };
+      for await (const chunk of stream) {
+        rewrittenContent += chunk;
+        setCurrentConvo(prev => {
+          if (!prev) return null;
+          const updatedMessages = [...prev.messages];
+          if (messageIndex >= 0 && messageIndex < updatedMessages.length && updatedMessages[messageIndex].timestamp === originalMessage.timestamp) {
+            let currentAccumulated = updatedMessages[messageIndex].content;
+            let cleanedChunk = chunk;
+            const lastWordMatch = currentAccumulated.match(/(\w+)$/);
+            const firstWordMatch = chunk.match(/^(\w+)/);
+            if (lastWordMatch && firstWordMatch && lastWordMatch[1] === firstWordMatch[1]) {
+              const endsWithSpaceAndWord = /\s\w+$/.test(currentAccumulated);
+              const startsWithWordAndSpace = /^\w+\s/.test(chunk);
+              if (endsWithSpaceAndWord || startsWithWordAndSpace) {
+                cleanedChunk = chunk.substring(firstWordMatch[1].length).trimStart();
               }
-             const finalConvo = { ...prev, messages: finalMessages, lastEdited: Date.now() };
-             saveConversation(finalConvo);
-             return finalConvo;
-         });
-
-         toast.success("Rewrite complete!", { id: loadingToastId });
-
-     } catch (error: any) {
-         console.error("Error during rewrite:", error);
-            let errorMsg = `Rewrite failed: ${error.message || 'Unknown error'}`;
-            if (error.name === 'NotAllowedError') { 
-               errorMsg = `Rewrite failed: Necessary capability not available.`;
             }
-            toast.error(errorMsg, { id: loadingToastId });
-     } finally {
-         setIsRewriting(false);
-         setMessageToRewrite(null); 
-         setRewriteInstruction("");
-     }
+            updatedMessages[messageIndex] = { ...updatedMessages[messageIndex], content: currentAccumulated + cleanedChunk };
+          }
+          return { ...prev, messages: updatedMessages };
+        });
+      }
+
+      // Final cleanup and save
+      const finalRewrittenContent = rewrittenContent.replace(/\n{3,}/g, '\n\n').trimEnd();
+      setCurrentConvo(prev => {
+        if (!prev) return null;
+        const finalMessages = [...prev.messages];
+        if (messageIndex >= 0 && messageIndex < finalMessages.length && finalMessages[messageIndex].timestamp === originalMessage.timestamp) {
+          finalMessages[messageIndex] = {
+            ...finalMessages[messageIndex],
+            content: finalRewrittenContent,
+            timestamp: Date.now()
+          };
+        }
+        const finalConvo = { ...prev, messages: finalMessages, lastEdited: Date.now() };
+        saveConversation(finalConvo);
+        return finalConvo;
+      });
+
+      toast.success("Rewrite complete!", { id: loadingToastId });
+
+    } catch (error: any) {
+      console.error("Error during rewrite:", error);
+      let errorMsg = `Rewrite failed: ${error.message || 'Unknown error'}`;
+      if (error.name === 'NotAllowedError') {
+        errorMsg = `Rewrite failed: Necessary capability not available.`;
+      }
+      toast.error(errorMsg, { id: loadingToastId });
+    } finally {
+      setIsRewriting(false);
+      setMessageToRewrite(null);
+      setRewriteInstruction("");
+    }
   }, [messageToRewrite, rewriteInstruction, currentConvo, persona, session, saveConversation]);
 
   // --- Analyze Rehearsal Function ---
@@ -323,8 +322,8 @@ export default function ChatPage() {
 
     const isPrebuilt = PREBUILT_PERSONAS.some(p => p.id === persona.id);
     if (isPrebuilt && !personaExists(persona.id)) {
-       console.log(`Adding pre-built persona ${persona.name} to custom list (triggered by analysis).`);
-       addPersona(persona);
+      console.log(`Adding pre-built persona ${persona.name} to custom list (triggered by analysis).`);
+      addPersona(persona);
     }
 
     setIsAnalyzing(true);
@@ -333,7 +332,7 @@ export default function ChatPage() {
     const loadingToastId = toast.loading("Analyzing rehearsal...");
 
     let session: any = null;
-    let analysisSuccess = false; 
+    let analysisSuccess = false;
     let resultText = "";
 
     try {
@@ -349,12 +348,11 @@ export default function ChatPage() {
       if (!audioBlob || validImageBlobs.length === 0) {
         throw new Error("Failed to prepare media Blobs.");
       }
-      console.log(`Prepared ${validImageBlobs.length} image Blobs and 1 audio Blob.`);
 
       // 2. Create Multimodal Session
       session = await createMultimodalSession(
         persona.systemPrompt,
-        [ { type: 'audio' }, { type: 'image' }, { type: 'text' } ] // Keep expected inputs simple
+        [{ type: 'audio' }, { type: 'image' }, { type: 'text' }] // Keep expected inputs simple
       );
 
       // 3. Construct Multimodal Prompt Array
@@ -366,7 +364,6 @@ export default function ChatPage() {
         // Final text instruction
         { role: 'user', content: [{ type: 'text', value: "Analyze the provided audio recording and image snapshots based on your system prompt instructions. Provide constructive feedback on clarity, confidence, tone, and visual cues (like posture or facial expression if visible)." }] }
       ];
-      console.log("Sending multimodal prompt payload:", multimodalPromptPayload);
 
 
       // 4. Call the AI 
@@ -378,37 +375,36 @@ export default function ChatPage() {
 
       // --- Save Analysis as a Conversation ---
       if (analysisSuccess) {
-         const now = Date.now();
-         const userPseudoMessage: Message = {
-             role: 'user',
-             content: `[Speech Rehearsal Analyzed on ${new Date(now).toLocaleDateString()}]`,
-             timestamp: now -1 
-         };
-         // Create assistant message with the result
-         const assistantResultMessage: Message = {
-             role: 'assistant',
-             content: resultText,
-             timestamp: now
-         };
-         // Generate title
-         const convoTitle = `Speech Analysis - ${new Date(now).toLocaleString()}`;
+        const now = Date.now();
+        const userPseudoMessage: Message = {
+          role: 'user',
+          content: `[Speech Rehearsal Analyzed on ${new Date(now).toLocaleDateString()}]`,
+          timestamp: now - 1
+        };
+        // Create assistant message with the result
+        const assistantResultMessage: Message = {
+          role: 'assistant',
+          content: resultText,
+          timestamp: now
+        };
+        // Generate title
+        const convoTitle = `Speech Analysis - ${new Date(now).toLocaleString()}`;
 
-         // Create the conversation object
-         const newAnalysisConvo: Conversation = {
-             id: crypto.randomUUID(),
-             personaId: persona.id,
-             title: convoTitle,
-             messages: [userPseudoMessage, assistantResultMessage],
-             lastEdited: now
-         };
+        // Create the conversation object
+        const newAnalysisConvo: Conversation = {
+          id: crypto.randomUUID(),
+          personaId: persona.id,
+          title: convoTitle,
+          messages: [userPseudoMessage, assistantResultMessage],
+          lastEdited: now
+        };
 
-         // Save it using the hook function
-         saveConversation(newAnalysisConvo);
-         console.log("Saved analysis result as conversation:", newAnalysisConvo.id);
+        // Save it using the hook function
+        saveConversation(newAnalysisConvo);
 
-         // Navigate to the new conversation's URL
-         navigate(`/chat/${persona.id}?convo=${newAnalysisConvo.id}`, { replace: true });
-         setSpeechCoachMode('options'); 
+        // Navigate to the new conversation's URL
+        navigate(`/chat/${persona.id}?convo=${newAnalysisConvo.id}`, { replace: true });
+        setSpeechCoachMode('options');
       }
 
     } catch (error: any) {
@@ -417,10 +413,10 @@ export default function ChatPage() {
       // --- Graceful Error Handling ---
       let errorMessage = `Analysis failed: ${error.message || 'Unknown error'}`;
       if (error.name === 'NotAllowedError') {
-         errorMessage = "Analysis failed: Multimodal capability (audio/image) is not available or enabled on this system. Please check browser flags and system requirements.";
-         setAnalysisResult(errorMessage);
+        errorMessage = "Analysis failed: Multimodal capability (audio/image) is not available or enabled on this system. Please check browser flags and system requirements.";
+        setAnalysisResult(errorMessage);
       } else {
-         setAnalysisResult(`Analysis Error: ${error.message}`); 
+        setAnalysisResult(`Analysis Error: ${error.message}`);
       }
       toast.error(errorMessage, { id: loadingToastId });
       setSpeechCoachMode('analyzing');
@@ -430,8 +426,8 @@ export default function ChatPage() {
       session?.destroy();
     }
   }, [
-      persona, capturedAudioBlobUrl, capturedImageSnapshots,
-      createMultimodalSession, setSpeechCoachMode, saveConversation, navigate, addPersona, personaExists
+    persona, capturedAudioBlobUrl, capturedImageSnapshots,
+    createMultimodalSession, setSpeechCoachMode, saveConversation, navigate, addPersona, personaExists
   ]);
 
   // --- Snapshot Logic ---
@@ -519,12 +515,12 @@ export default function ChatPage() {
 
   // --- Handle New Chat Button ---
   const handleNewChat = () => {
-     if (personaId) {
-        session?.destroy(); 
-        setSession(null);
-        setCurrentConvo(null);
-        navigate(`/chat/${personaId}`); 
-     }
+    if (personaId) {
+      session?.destroy();
+      setSession(null);
+      setCurrentConvo(null);
+      navigate(`/chat/${personaId}`);
+    }
   };
 
   // --- Handle User Message Submission ---
@@ -535,8 +531,8 @@ export default function ChatPage() {
     }
 
     if (!userInput.trim() && !file) {
-        toast.warning("Please type a message or attach a file.");
-        return;
+      toast.warning("Please type a message or attach a file.");
+      return;
     }
 
     let userMessageContent = userInput;
@@ -546,24 +542,24 @@ export default function ChatPage() {
 
     let payloadParts: { type: 'text' | 'image' | 'audio', value: string | Blob }[] = [];
     if (userInput.trim()) {
-        payloadParts.push({ type: 'text', value: userInput.trim() });
+      payloadParts.push({ type: 'text', value: userInput.trim() });
     }
 
-    let mediaType: 'audio' | 'image' | null = null; 
+    let mediaType: 'audio' | 'image' | null = null;
 
     if (file) {
-        const mediaBlob: Blob = file;
-        mediaType = file.type.startsWith('image/') ? 'image' :
-                    file.type.startsWith('audio/') ? 'audio' : null;
+      const mediaBlob: Blob = file;
+      mediaType = file.type.startsWith('image/') ? 'image' :
+        file.type.startsWith('audio/') ? 'audio' : null;
 
-        if (mediaType) {
-            payloadParts.unshift({ type: mediaType, value: mediaBlob }); 
-        } else {
-            toast.error("Unsupported file type attached.");
-            return; 
-        }
+      if (mediaType) {
+        payloadParts.unshift({ type: mediaType, value: mediaBlob });
+      } else {
+        toast.error("Unsupported file type attached.");
+        return;
+      }
     }
-    
+
     let convoToUpdate: Conversation;
     let isNewConversation = false;
 
@@ -573,13 +569,12 @@ export default function ChatPage() {
       isNewConversation = true;
 
       navigate(`/chat/${persona.id}?convo=${convoToUpdate.id}`, { replace: true });
-      
+
       // --- Save Pre-built Persona on First Use ---
       const isPrebuilt = PREBUILT_PERSONAS.some(p => p.id === persona.id);
       // Check if it's prebuilt AND doesn't already exist in the custom list
       if (isPrebuilt && !personaExists(persona.id)) {
-         console.log(`Adding pre-built persona ${persona.name} to custom list.`);
-         addPersona(persona); 
+        addPersona(persona);
       }
     } else {
       convoToUpdate = {
@@ -588,12 +583,12 @@ export default function ChatPage() {
         lastEdited: Date.now(),
       };
     }
-    
+
     // Add empty assistant message placeholder
     const assistantMessagePlaceholder: Message = { role: 'assistant', content: "", timestamp: Date.now() + 1 };
     convoToUpdate.messages.push(assistantMessagePlaceholder);
-    
-    setCurrentConvo(convoToUpdate); 
+
+    setCurrentConvo(convoToUpdate);
     setIsLoading(true);
     setAttachedFile(null);
 
@@ -602,49 +597,48 @@ export default function ChatPage() {
 
     try {
       // Pass only the new user message to promptStreaming
-      console.log("Sending multimodal payload:", payloadParts);
-      const stream = await session.promptStreaming([{ role: 'user', content: payloadParts }]); 
+      const stream = await session.promptStreaming([{ role: 'user', content: payloadParts }]);
 
       for await (const chunk of stream) {
         accumulatedResponse += chunk;
         setCurrentConvo(prev => {
-           if (!prev) return null; 
-           const updatedMessages = [...prev.messages];
-           const lastMsgIndex = updatedMessages.length - 1;
-           const lastMsg = { ...updatedMessages[lastMsgIndex] };
+          if (!prev) return null;
+          const updatedMessages = [...prev.messages];
+          const lastMsgIndex = updatedMessages.length - 1;
+          const lastMsg = { ...updatedMessages[lastMsgIndex] };
 
-           let currentContent = lastMsg.content;
-           let cleanedChunk = chunk;
+          let currentContent = lastMsg.content;
+          let cleanedChunk = chunk;
 
-           // Simple stutter removal
-           const lastWordMatch = currentContent.match(/(\w+)$/); 
-           const firstWordMatch = chunk.match(/^(\w+)/);
-           if (lastWordMatch && firstWordMatch && lastWordMatch[1] === firstWordMatch[1]) {
-             const endsWithSpaceAndWord = /\s\w+$/.test(currentContent);
-             const startsWithWordAndSpace = /^\w+\s/.test(chunk);
-             if (endsWithSpaceAndWord || startsWithWordAndSpace) {
-                cleanedChunk = chunk.substring(firstWordMatch[1].length).trimStart();
-             }
-           }
-           lastMsg.content += cleanedChunk;
-           lastMsg.timestamp = Date.now(); 
+          // Simple stutter removal
+          const lastWordMatch = currentContent.match(/(\w+)$/);
+          const firstWordMatch = chunk.match(/^(\w+)/);
+          if (lastWordMatch && firstWordMatch && lastWordMatch[1] === firstWordMatch[1]) {
+            const endsWithSpaceAndWord = /\s\w+$/.test(currentContent);
+            const startsWithWordAndSpace = /^\w+\s/.test(chunk);
+            if (endsWithSpaceAndWord || startsWithWordAndSpace) {
+              cleanedChunk = chunk.substring(firstWordMatch[1].length).trimStart();
+            }
+          }
+          lastMsg.content += cleanedChunk;
+          lastMsg.timestamp = Date.now();
 
-           updatedMessages[lastMsgIndex] = lastMsg;
-           return { ...prev, messages: updatedMessages };
+          updatedMessages[lastMsgIndex] = lastMsg;
+          return { ...prev, messages: updatedMessages };
         });
       }
 
     } catch (e: any) {
       console.error(e);
       let errorMsg = `An error occurred: ${e.message || 'Unknown error'}`;
-       if (e.name === 'NotAllowedError') {
-           errorMsg = "Multimodal capability (audio/image) is not available or enabled on this system.";
-       }
+      if (e.name === 'NotAllowedError') {
+        errorMsg = "Multimodal capability (audio/image) is not available or enabled on this system.";
+      }
       toast.error(errorMsg);
       // Rollback placeholder message
       setCurrentConvo(prev => {
-          if (!prev) return null;
-          return {...prev, messages: prev.messages.slice(0, -1)}
+        if (!prev) return null;
+        return { ...prev, messages: prev.messages.slice(0, -1) }
       });
     } finally {
       setIsLoading(false);
@@ -656,14 +650,14 @@ export default function ChatPage() {
       if (titleMatch && titleMatch[1]) {
         const extractedTitle = titleMatch[1].trim();
         if (extractedTitle && (currentConvo?.title === "New Chat" || isNewConversation)) {
-           finalTitle = extractedTitle;
-           toast.info(`Story title suggested: "${finalTitle}"`);
+          finalTitle = extractedTitle;
+          toast.info(`Story title suggested: "${finalTitle}"`);
         }
       }
 
 
       if (isNewConversation && finalTitle === "New Chat") {
-        finalTitle = await generateTitle(userInput, finalContent); 
+        finalTitle = await generateTitle(userInput, finalContent);
         toast.info(`Chat title set to: "${finalTitle}"`);
       }
       setCurrentConvo(prev => {
@@ -672,20 +666,20 @@ export default function ChatPage() {
         const finalMessages = [...prev.messages];
         const finalLastMsgIndex = finalMessages.length - 1;
         if (finalLastMsgIndex >= 0 && finalMessages[finalLastMsgIndex].role === 'assistant') {
-           const finalLastMsg = { ...finalMessages[finalLastMsgIndex] };
-           // Trim and normalize newlines
-           finalLastMsg.content = finalContent
-                                    .replace(/\n{3,}/g, '\n\n')
-                                    .trimEnd();
-           finalMessages[finalLastMsgIndex] = finalLastMsg;
+          const finalLastMsg = { ...finalMessages[finalLastMsgIndex] };
+          // Trim and normalize newlines
+          finalLastMsg.content = finalContent
+            .replace(/\n{3,}/g, '\n\n')
+            .trimEnd();
+          finalMessages[finalLastMsgIndex] = finalLastMsg;
         }
 
         // Update title and save
         const finalConvo: Conversation = {
-            ...prev,
-            title: finalTitle,
-            messages: finalMessages,
-            lastEdited: Date.now()
+          ...prev,
+          title: finalTitle,
+          messages: finalMessages,
+          lastEdited: Date.now()
         };
         saveConversation(finalConvo);
         return finalConvo;
@@ -696,27 +690,27 @@ export default function ChatPage() {
 
 
   // --- Render Logic ---
-   const renderContent = () => {
+  const renderContent = () => {
     // --- Speech Coach UI Logic ---
     if (persona?.type === 'speechcoach') {
 
       // --- Display Saved Analysis ---
       if (currentConvo) {
-         // Find the assistant message
-         const savedResult = currentConvo.messages.find(m => m.role === 'assistant')?.content;
-         return (
-            <div className="p-4 bg-slate-800 rounded-lg border border-slate-700 space-y-4">
-               <h3 className="text-lg font-semibold">Saved Analysis: {currentConvo.title}</h3>
-               <div className="p-3 bg-slate-900 rounded border border-slate-700 max-h-96 overflow-y-auto">
-                  <pre className="text-sm text-slate-200 whitespace-pre-wrap font-sans">
-                    {savedResult || "Could not load analysis content."}
-                  </pre>
-               </div>
-               <Button variant="outline" className="w-full cursor-pointer" onClick={handleNewChat}>
-                   <Video className="mr-2 h-4 w-4" /> Start New Rehearsal
-               </Button>
+        // Find the assistant message
+        const savedResult = currentConvo.messages.find(m => m.role === 'assistant')?.content;
+        return (
+          <div className="p-4 bg-slate-800 rounded-lg border border-slate-700 space-y-4">
+            <h3 className="text-lg font-semibold">Saved Analysis: {currentConvo.title}</h3>
+            <div className="p-3 bg-slate-900 rounded border border-slate-700 max-h-96 overflow-y-auto">
+              <pre className="text-sm text-slate-200 whitespace-pre-wrap font-sans">
+                {savedResult || "Could not load analysis content."}
+              </pre>
             </div>
-         );
+            <Button variant="outline" className="w-full cursor-pointer" onClick={handleNewChat}>
+              <Video className="mr-2 h-4 w-4" /> Start New Rehearsal
+            </Button>
+          </div>
+        );
       }
 
       // --- State: Showing Initial Options ---
@@ -773,13 +767,13 @@ export default function ChatPage() {
 
             {/* Status and Timer */}
             <div className="text-center mb-4">
-              {isAcquiring && <p className="text-sm text-yellow-400"><CircleDot className="inline mr-1 h-3 w-3 animate-pulse"/>Requesting permissions...</p>}
+              {isAcquiring && <p className="text-sm text-yellow-400"><CircleDot className="inline mr-1 h-3 w-3 animate-pulse" />Requesting permissions...</p>}
               {isRecording && (
-                 <p className="text-lg font-semibold text-red-400">
-                   <Mic className="inline mr-2 h-5 w-5 animate-pulse"/> Recording... {String(Math.floor(elapsedTime / 60)).padStart(2, '0')}:{String(elapsedTime % 60).padStart(2, '0')} / 01:00
-                 </p>
+                <p className="text-lg font-semibold text-red-400">
+                  <Mic className="inline mr-2 h-5 w-5 animate-pulse" /> Recording... {String(Math.floor(elapsedTime / 60)).padStart(2, '0')}:{String(elapsedTime % 60).padStart(2, '0')} / 01:00
+                </p>
               )}
-               {!isRecording && !isAcquiring && <p className="text-sm text-slate-400">Ready to record (Max 60s)</p>}
+              {!isRecording && !isAcquiring && <p className="text-sm text-slate-400">Ready to record (Max 60s)</p>}
             </div>
 
             {/* Controls */}
@@ -804,77 +798,77 @@ export default function ChatPage() {
             </div>
           </div>
         );
-      } 
+      }
 
       // --- State: Previewing Captured Media ---
-       if (speechCoachMode === 'previewing') {
-         return (
-         <>
-           <div className="p-6 bg-card/50 backdrop-blur-sm rounded-2xl border border-border/40 space-y-6">
-             <h3 className="text-lg font-semibold">Rehearsal Preview</h3>
-             {capturedAudioBlobUrl && (
-               <div>
-                 <Label>Captured Audio:</Label>
-                 <audio src={capturedAudioBlobUrl} controls className="w-full mt-1" />
-               </div>
-             )}
-             {capturedImageSnapshots.length > 0 && (
+      if (speechCoachMode === 'previewing') {
+        return (
+          <>
+            <div className="p-6 bg-card/50 backdrop-blur-sm rounded-2xl border border-border/40 space-y-6">
+              <h3 className="text-lg font-semibold">Rehearsal Preview</h3>
+              {capturedAudioBlobUrl && (
+                <div>
+                  <Label>Captured Audio:</Label>
+                  <audio src={capturedAudioBlobUrl} controls className="w-full mt-1" />
+                </div>
+              )}
+              {capturedImageSnapshots.length > 0 && (
                 <div>
                   <Label>Captured Snapshots ({capturedImageSnapshots.length}):</Label>
                   <div className="flex gap-2 overflow-x-auto mt-1 p-1 bg-slate-900 rounded">
-                     {capturedImageSnapshots.map((src, index) => (
-                       <img key={index} src={src} alt={`Snapshot ${index + 1}`} className="h-20 w-auto rounded object-cover shrink-0" />
-                     ))}
+                    {capturedImageSnapshots.map((src, index) => (
+                      <img key={index} src={src} alt={`Snapshot ${index + 1}`} className="h-20 w-auto rounded object-cover shrink-0" />
+                    ))}
                   </div>
                 </div>
-             )}
+              )}
               <Button className="w-full cursor-pointer" onClick={analyzeRehearsal}>
-                 Analyze Rehearsal
+                Analyze Rehearsal
               </Button>
 
-             <Button variant="outline" className="w-full cursor-pointer" onClick={() => setSpeechCoachMode('options')}>
+              <Button variant="outline" className="w-full cursor-pointer" onClick={() => setSpeechCoachMode('options')}>
                 Discard and Return
-             </Button>
-           </div>
-           </>
-         );
-       }
+              </Button>
+            </div>
+          </>
+        );
+      }
 
-       // --- Analyzing Mode ---
+      // --- Analyzing Mode ---
       if (speechCoachMode === 'analyzing' && isAnalyzing) {
-         return (
-           <div className="text-center p-10 bg-card/50 backdrop-blur-sm rounded-2xl border border-border/40">
-             <h3 className="text-lg font-semibold text-blue-400">Analyzing Rehearsal...</h3>
-             <p className="text-slate-400 mt-2">
-               The AI is processing your audio and images. Please wait.
-             </p>
-           </div>
-         );
+        return (
+          <div className="text-center p-10 bg-card/50 backdrop-blur-sm rounded-2xl border border-border/40">
+            <h3 className="text-lg font-semibold text-blue-400">Analyzing Rehearsal...</h3>
+            <p className="text-slate-400 mt-2">
+              The AI is processing your audio and images. Please wait.
+            </p>
+          </div>
+        );
       }
 
       // --- Displaying Analysis Result ---
       if (speechCoachMode === 'analyzing' && !isAnalyzing && analysisResult) {
-         const isErrorResult = analysisResult.startsWith("Analysis failed:") || analysisResult.startsWith("Analysis Error:");
-         return (
-           <div className="p-6 bg-card/50 backdrop-blur-sm rounded-2xl border border-border/40 space-y-6">
-             <h3 className={`text-lg font-semibold ${isErrorResult ? 'text-red-400' : ''}`}>
-               {isErrorResult ? "Analysis Problem" : "Analysis Feedback"}
-             </h3>
-             <div className="p-3 bg-slate-900 rounded border border-slate-700 max-h-96 overflow-y-auto">
-                <pre className={`text-sm ${isErrorResult ? 'text-red-300' : 'text-slate-200'} whitespace-pre-wrap font-sans`}>
-                  {analysisResult}
-                </pre>
-             </div>
-             <Button variant="outline" className="w-full cursor-pointer" onClick={() => {
-                 setSpeechCoachMode('options'); 
-                 setAnalysisResult(null);
-                 setCapturedAudioBlobUrl(null);
-                 setCapturedImageSnapshots([]);
-             }}>
-                 {isErrorResult ? "Back to Options" : "Done / Record Again"}
-             </Button>
-           </div>
-         );
+        const isErrorResult = analysisResult.startsWith("Analysis failed:") || analysisResult.startsWith("Analysis Error:");
+        return (
+          <div className="p-6 bg-card/50 backdrop-blur-sm rounded-2xl border border-border/40 space-y-6">
+            <h3 className={`text-lg font-semibold ${isErrorResult ? 'text-red-400' : ''}`}>
+              {isErrorResult ? "Analysis Problem" : "Analysis Feedback"}
+            </h3>
+            <div className="p-3 bg-slate-900 rounded border border-slate-700 max-h-96 overflow-y-auto">
+              <pre className={`text-sm ${isErrorResult ? 'text-red-300' : 'text-slate-200'} whitespace-pre-wrap font-sans`}>
+                {analysisResult}
+              </pre>
+            </div>
+            <Button variant="outline" className="w-full cursor-pointer" onClick={() => {
+              setSpeechCoachMode('options');
+              setAnalysisResult(null);
+              setCapturedAudioBlobUrl(null);
+              setCapturedImageSnapshots([]);
+            }}>
+              {isErrorResult ? "Back to Options" : "Done / Record Again"}
+            </Button>
+          </div>
+        );
       }
 
     }
@@ -906,47 +900,47 @@ export default function ChatPage() {
         </div>
       );
     }
-    
+
     // AI Model is downloading
     if (availability === 'downloading') {
-       return (
+      return (
         <div className="text-center p-12 bg-card/50 backdrop-blur-sm rounded-2xl border border-border/40">
           <h3 className="text-lg font-semibold text-blue-400">Downloading AI Model...</h3>
           <p className="text-slate-400 mt-2">
             Please wait. This may take a few minutes.
           </p>
           <div className="w-full bg-slate-700 rounded-full h-2.5 mt-4">
-            <div 
-              className="bg-primary h-2.5 rounded-full" 
+            <div
+              className="bg-primary h-2.5 rounded-full"
               style={{ width: `${downloadProgress}%` }}
             ></div>
           </div>
-           <p className="text-sm text-slate-400 mt-2">{downloadProgress}% complete</p>
+          <p className="text-sm text-slate-400 mt-2">{downloadProgress}% complete</p>
         </div>
       );
     }
-    
+
     // Session is initializing
     if (isSessionLoading && (persona?.type === 'text' || persona?.type === 'audio' || persona?.type === 'image')) {
-       return (
+      return (
         <div className="text-center p-10 bg-slate-800 rounded-lg">
           <p className="text-slate-400">Initializing AI session... please wait.</p>
         </div>
       );
     }
-    
+
     // Ready State (Model available, session ready or convo loaded)
     if (availability === 'available' && (persona?.type === 'text' || persona?.type === 'audio' || persona?.type === 'image')) {
-       // Check if session creation failed but model is available
-       if (!session && !isSessionLoading) {
-           return (
-            <div className="text-center p-12 bg-card/50 backdrop-blur-sm rounded-2xl border border-border/40">
-              <h3 className="text-lg font-semibold text-red-400">Session Failed</h3>
-              <p className="text-slate-400 mt-2">Could not initialize AI session. Please try refreshing.</p>
-            </div>
-          );
-       }
-      
+      // Check if session creation failed but model is available
+      if (!session && !isSessionLoading) {
+        return (
+          <div className="text-center p-12 bg-card/50 backdrop-blur-sm rounded-2xl border border-border/40">
+            <h3 className="text-lg font-semibold text-red-400">Session Failed</h3>
+            <p className="text-slate-400 mt-2">Could not initialize AI session. Please try refreshing.</p>
+          </div>
+        );
+      }
+
       // Session is ready, display chat
       return (
         <div className="flex flex-col h-[calc(100vh-200px)] min-h-[500px]">
@@ -954,35 +948,35 @@ export default function ChatPage() {
           <div ref={chatContainerRef} className="flex-1 overflow-y-auto space-y-2 p-6 mb-6 rounded-xl bg-card/30 backdrop-blur-sm border border-border/40">
             {/* --- Placeholder for Audio/Image Personas --- */}
             {currentConvo?.messages.length === 0 && (persona.type === 'audio' || persona.type === 'image') && (
-                <p className="text-center text-slate-400 py-4 italic">
-                  This persona works best with {persona.type}. Use the '+' button to add media or start by typing.
-                </p>
+              <p className="text-center text-slate-400 py-4 italic">
+                This persona works best with {persona.type}. Use the '+' button to add media or start by typing.
+              </p>
             )}
 
             {/* Existing Message Mapping Logic */}
             {currentConvo && currentConvo.messages.length > 0 ? (
               currentConvo.messages.map((msg, index) => (
-                <ChatMessage 
-                  key={`${currentConvo.id}-${index}-${msg.timestamp}`} 
+                <ChatMessage
+                  key={`${currentConvo.id}-${index}-${msg.timestamp}`}
                   message={msg}
                   personaType={persona.type}
                   onRewriteClick={() => handleRewriteClick(msg, index)}
                 />
               ))
             ) : (
-               persona.type === 'text' && (
-                 <p className="text-center text-slate-400 py-4">
+              persona.type === 'text' && (
+                <p className="text-center text-slate-400 py-4">
                   Start a new chat with {persona.name}.
-                 </p>
-               )
+                </p>
+              )
             )}
           </div>
-          
+
           {/* Input Box */}
-          <ChatInput 
-            onSubmit={handleSubmitMessage} 
-            isLoading={isLoading} 
-            personaType={persona.type} 
+          <ChatInput
+            onSubmit={handleSubmitMessage}
+            isLoading={isLoading}
+            personaType={persona.type}
             attachedFile={attachedFile}
             onFileSelect={handleFileSelect}
           />
@@ -992,7 +986,7 @@ export default function ChatPage() {
 
     // Session creation failed but model is available (for text personas)
     if (availability === 'available' && !session && !isSessionLoading && (persona?.type === 'text' || persona?.type === 'audio' || persona?.type === 'image')) {
-       return (
+      return (
         <div className="text-center p-10 bg-slate-800 rounded-lg border border-red-900">
           <h3 className="text-lg font-semibold text-red-400">Session Failed</h3>
           <p className="text-slate-400 mt-2">
@@ -1007,9 +1001,9 @@ export default function ChatPage() {
 
     // Default: Still checking availability
     return (
-       <div className="text-center p-10 bg-slate-800 rounded-lg">
-          <p className="text-slate-400">Checking AI model availability...</p>
-        </div>
+      <div className="text-center p-10 bg-slate-800 rounded-lg">
+        <p className="text-slate-400">Checking AI model availability...</p>
+      </div>
     );
   };
 
@@ -1042,19 +1036,19 @@ export default function ChatPage() {
               {persona.description}
             </p>
           </div>
-          <Button 
-            className='cursor-pointer h-11 w-11 hover:scale-105 transition-all duration-200' 
-            variant="outline" 
-            size="icon" 
-            onClick={handleNewChat} 
+          <Button
+            className='cursor-pointer h-11 w-11 hover:scale-105 transition-all duration-200'
+            variant="outline"
+            size="icon"
+            onClick={handleNewChat}
             title="Start New Chat"
           >
             <ListRestart className="h-5 w-5" />
           </Button>
         </div>
-        
+
         <ConversationList conversations={pastConversations} persona={persona} />
-        
+
         {renderContent()}
       </main>
       <Footer />
@@ -1081,9 +1075,9 @@ export default function ChatPage() {
             </div>
           </div>
           <DialogFooter>
-             <DialogClose asChild>
-                <Button type="button" variant="secondary">Cancel</Button>
-             </DialogClose>
+            <DialogClose asChild>
+              <Button type="button" variant="secondary">Cancel</Button>
+            </DialogClose>
             <Button
               type="button"
               onClick={handleConfirmRewrite}

@@ -36,11 +36,11 @@ export function Features() {
             Experience private AI conversations without compromising on speed or security. Enterprise-grade privacy meets consumer-friendly design.
           </p>
         </div>
-        
+
         <div className="grid grid-cols-1 gap-8 md:grid-cols-3">
           {features.map((feature) => (
-            <Card 
-              key={feature.title} 
+            <Card
+              key={feature.title}
               className="bg-card border-border/60 hover:border-primary/30 hover:bg-gradient-subtle transition-all duration-300 group hover:shadow-xl"
             >
               <CardHeader className="p-10 text-center">

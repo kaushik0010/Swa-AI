@@ -41,8 +41,8 @@ export function ConversationList({ conversations, persona }: ConversationListPro
   };
 
   const handleConfirmAllDelete = () => {
-     deleteAllConversationsForPersona(persona.id);
-     setIsConfirmAllOpen(false);
+    deleteAllConversationsForPersona(persona.id);
+    setIsConfirmAllOpen(false);
   };
 
   if (conversations.length === 0) {
@@ -52,18 +52,18 @@ export function ConversationList({ conversations, persona }: ConversationListPro
   return (
     <div className="mb-8 border border-border/40 rounded-xl p-6 bg-card/50 backdrop-blur-sm">
       <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-semibold text-foreground">Past Conversations</h2>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors px-3 py-2 h-auto cursor-pointer"
-            onClick={handleDeleteAllClick}
-            aria-label={`Delete all conversations for ${persona.name}`}
-            title="Delete all conversations"
-          >
-             <MessageSquareWarning className="h-4 w-4 mr-2" /> 
-             <span className="text-sm font-medium">Delete All</span>
-          </Button>
+        <h2 className="text-xl font-semibold text-foreground">Past Conversations</h2>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors px-3 py-2 h-auto cursor-pointer"
+          onClick={handleDeleteAllClick}
+          aria-label={`Delete all conversations for ${persona.name}`}
+          title="Delete all conversations"
+        >
+          <MessageSquareWarning className="h-4 w-4 mr-2" />
+          <span className="text-sm font-medium">Delete All</span>
+        </Button>
       </div>
       <div className="space-y-3 max-h-64 overflow-y-auto pr-2">
         {conversations.map(convo => (

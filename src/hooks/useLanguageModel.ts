@@ -16,13 +16,13 @@ export interface ExpectedInput {
 }
 
 interface ExpectedOutput {
-  type: 'text'; 
+  type: 'text';
   languages?: string[];
 }
 
 interface LanguageModel {
   availability(): Promise<Availability>;
-  create(options?: { 
+  create(options?: {
     initialPrompts?: { role: string, content: string }[];
     monitor?(m: any): void;
     topK?: number;
@@ -55,7 +55,7 @@ export function useLanguageModel() {
           LanguageModel.availability(),
           LanguageModel.params()
         ]);
-        
+
         setAvailability(status);
         setModelParams(params);
       } catch (e) {
@@ -71,40 +71,40 @@ export function useLanguageModel() {
     // Ensure LanguageModel exists and has the create method
     const LanguageModelAPI = (window as any).LanguageModel;
     if (availability !== 'downloadable' || typeof LanguageModelAPI?.create !== 'function') {
-        console.warn("Download cannot start: Status is not 'downloadable' or API is missing.");
-        return;
+      console.warn("Download cannot start: Status is not 'downloadable' or API is missing.");
+      return;
     }
 
     setAvailability('downloading');
     setDownloadProgress(0);
 
     try {
-        console.log("Attempting to create session to trigger/monitor download...");
-        // Create a session to trigger the download, with a monitor
-        await LanguageModelAPI.create({
-            monitor(m: any) {
-                m.addEventListener('downloadprogress', (e: any) => {
-                    // Calculate progress based on loaded/total
-                    let progress = 0;
-                    if (e.total > 0) {
-                        progress = Math.round((e.loaded / e.total) * 100);
-                    } else {
-                        progress = Math.min(downloadProgress + 5, 99);
-                    }
-                    console.log(`Download progress: ${progress}%`);
-                    setDownloadProgress(progress);
-                });
-            },
-        });
+      console.log("Attempting to create session to trigger/monitor download...");
+      // Create a session to trigger the download, with a monitor
+      await LanguageModelAPI.create({
+        monitor(m: any) {
+          m.addEventListener('downloadprogress', (e: any) => {
+            // Calculate progress based on loaded/total
+            let progress = 0;
+            if (e.total > 0) {
+              progress = Math.round((e.loaded / e.total) * 100);
+            } else {
+              progress = Math.min(downloadProgress + 5, 99);
+            }
+            console.log(`Download progress: ${progress}%`);
+            setDownloadProgress(progress);
+          });
+        },
+      });
 
-        console.log("Model create() promise resolved. Setting availability to 'available'.");
-        setAvailability('available');
-        setDownloadProgress(100);
+      console.log("Model create() promise resolved. Setting availability to 'available'.");
+      setAvailability('available');
+      setDownloadProgress(100);
 
     } catch (e) {
-        console.error("Error during model download/creation:", e);
-        setAvailability('unavailable'); 
-        setDownloadProgress(0); 
+      console.error("Error during model download/creation:", e);
+      setAvailability('unavailable');
+      setDownloadProgress(0);
     }
   }, [availability, setAvailability, setDownloadProgress, downloadProgress]);
 
@@ -117,8 +117,6 @@ export function useLanguageModel() {
     if (availability !== 'available' || !modelParams) {
       throw new Error("Model is not available or params not loaded.");
     }
-    
-    console.log("Creating session. Override inputs:", expectedInputsOverride);
 
     const newTopK = Math.min(modelParams.maxTopK, 32);
     const newTemperature = modelParams.defaultTemperature;
@@ -140,9 +138,9 @@ export function useLanguageModel() {
       expectedOutputs: outputs,
     });
 
-    const sessionWithDestroy = session as any; 
+    const sessionWithDestroy = session as any;
     sessionWithDestroy.destroy = () => {
-       console.log("Session destroy called"); 
+      console.log("Session destroy called");
     };
 
     return sessionWithDestroy;
@@ -152,8 +150,8 @@ export function useLanguageModel() {
   // --- Function to Create Multimodal Session ---
   const createMultimodalSession = useCallback(async (
     systemPrompt: string,
-    inputs: ExpectedInput[], 
-    outputs: ExpectedOutput[] = [{ type: 'text', languages: ['en'] }] 
+    inputs: ExpectedInput[],
+    outputs: ExpectedOutput[] = [{ type: 'text', languages: ['en'] }]
   ) => {
     if (availability !== 'available' || !modelParams) {
       throw new Error("Model is not available or params not loaded.");
@@ -161,8 +159,6 @@ export function useLanguageModel() {
 
     const defaultTopK = modelParams.defaultTopK;
     const defaultTemperature = modelParams.defaultTemperature;
-
-    console.log("Creating multimodal session with expected inputs:", inputs);
 
     const session = await LanguageModel.create({
       initialPrompts: [{ role: 'system', content: systemPrompt }],
@@ -190,7 +186,7 @@ export function useLanguageModel() {
     // Define a specific, concise system prompt for title generation
     const titleSystemPrompt = "You are a title generator. Create a very short, concise title (max 5 words) for a conversation based on the user's first message and the assistant's first reply. Focus on the main topic. Do not use quotes or introductory phrases.";
 
-    let session: any = null; 
+    let session: any = null;
     try {
       session = await LanguageModel.create({
         initialPrompts: [{ role: 'system', content: titleSystemPrompt }],
@@ -205,11 +201,11 @@ export function useLanguageModel() {
       // Basic cleanup
       const cleanedTitle = rawTitle.replace(/["']/g, "").trim();
 
-      return cleanedTitle || "New Chat"; 
+      return cleanedTitle || "New Chat";
 
     } catch (error) {
       console.error("Error generating title:", error);
-      return "New Chat"; 
+      return "New Chat";
     } finally {
       session?.destroy();
     }

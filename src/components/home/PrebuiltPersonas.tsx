@@ -32,8 +32,8 @@ export function PrebuiltPersonas() {
         {/* Enhanced Persona Grid */}
         <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
           {PREBUILT_PERSONAS.map((persona) => (
-            <Link 
-              to={`/chat/${persona.id}`} 
+            <Link
+              to={`/chat/${persona.id}`}
               key={persona.id}
               className="block group"
             >

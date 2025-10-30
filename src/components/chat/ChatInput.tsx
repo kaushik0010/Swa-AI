@@ -13,12 +13,12 @@ interface ChatInputProps {
   onFileSelect: (file: File | null) => void;
 }
 
-export function ChatInput({ 
-  onSubmit, 
-  isLoading, 
-  personaType, 
-  attachedFile, 
-  onFileSelect 
+export function ChatInput({
+  onSubmit,
+  isLoading,
+  personaType,
+  attachedFile,
+  onFileSelect
 }: ChatInputProps) {
   const [input, setInput] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -31,7 +31,7 @@ export function ChatInput({
       onFileSelect(null);
     }
   };
-  
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey && !isLoading && (input.trim() || attachedFile)) {
       e.preventDefault();
@@ -55,25 +55,25 @@ export function ChatInput({
         return;
       }
       if (personaType === 'text' && !(file.type.startsWith('image/') || file.type.startsWith('audio/'))) {
-           toast.error("Please select an image or audio file.");
-           return;
+        toast.error("Please select an image or audio file.");
+        return;
       }
 
       console.log("File selected:", file.name, file.type);
       onFileSelect(file);
     }
     if (event.target) {
-        event.target.value = '';
+      event.target.value = '';
     }
   };
 
   const handleRemoveFile = () => {
-      onFileSelect(null);
+    onFileSelect(null);
   };
 
   const acceptTypes = personaType === 'image' ? 'image/*' :
-                      personaType === 'audio' ? 'audio/*' :
-                      'image/*,audio/*';
+    personaType === 'audio' ? 'audio/*' :
+      'image/*,audio/*';
 
   return (
     <div className="relative">
@@ -112,15 +112,15 @@ export function ChatInput({
         {/* Upload Button */}
         {(personaType === 'audio' || personaType === 'image' || personaType === 'text') && (
           <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="absolute left-2 cursor-pointer top-2 text-muted-foreground hover:text-foreground hover:bg-primary/10 transition-all duration-200 h-8 w-8"
-              onClick={handleUploadClick}
-              aria-label="Upload Media"
-              title={`Upload ${acceptTypes.replace('/*', '')}`}
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="absolute left-2 cursor-pointer top-2 text-muted-foreground hover:text-foreground hover:bg-primary/10 transition-all duration-200 h-8 w-8"
+            onClick={handleUploadClick}
+            aria-label="Upload Media"
+            title={`Upload ${acceptTypes.replace('/*', '')}`}
           >
-              <Plus className="h-4 w-4" />
+            <Plus className="h-4 w-4" />
           </Button>
         )}
 

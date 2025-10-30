@@ -1,6 +1,5 @@
 import type { Persona } from "./types";
 
-// We'll give them special IDs so our app can find them
 export const PREBUILT_PERSONAS: Persona[] = [
   {
     id: 'storyweaver',
@@ -60,7 +59,6 @@ export const PREBUILT_PERSONAS: Persona[] = [
   },
 ];
 
-// A helper function to find them
 export const getPrebuiltPersona = (id: string) => {
   return PREBUILT_PERSONAS.find(p => p.id === id);
 }

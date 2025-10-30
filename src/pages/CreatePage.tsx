@@ -79,11 +79,11 @@ export default function CreatePage() {
               <Label htmlFor="name" className="text-base font-medium">
                 Name *
               </Label>
-              <Input 
-                id="name" 
-                value={name} 
-                onChange={(e) => setName(e.target.value)} 
-                placeholder="e.g., StoryWeaver, Marketing Expert, Code Assistant" 
+              <Input
+                id="name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="e.g., StoryWeaver, Marketing Expert, Code Assistant"
                 className="bg-card border-border/60 focus:border-primary/50 transition-colors duration-200 h-12 text-base"
                 aria-invalid={!!errors?.fieldErrors.name}
               />
@@ -99,10 +99,10 @@ export default function CreatePage() {
               <Label htmlFor="description" className="text-base font-medium">
                 Description
               </Label>
-              <Input 
-                id="description" 
-                value={description} 
-                onChange={(e) => setDescription(e.target.value)} 
+              <Input
+                id="description"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
                 placeholder="e.g., Helps me write fantasy stories and develop characters"
                 className="bg-card border-border/60 focus:border-primary/50 transition-colors duration-200 h-12 text-base"
               />
@@ -117,8 +117,8 @@ export default function CreatePage() {
                 value={personaType}
                 onValueChange={(value: string) => setPersonaType(value as PersonaType)}
               >
-                <SelectTrigger 
-                  id="persona-type" 
+                <SelectTrigger
+                  id="persona-type"
                   className="w-full h-12 bg-card border-border/60 focus:border-primary/50 transition-colors duration-200 text-base"
                 >
                   <SelectValue placeholder="Select a persona type" />
@@ -159,8 +159,8 @@ export default function CreatePage() {
 
             {/* Submit Button */}
             <div className="pt-4">
-              <Button 
-                type="submit" 
+              <Button
+                type="submit"
                 className="w-full bg-gradient-primary hover:shadow-lg hover:scale-105 transition-all duration-200 h-12 text-base font-semibold cursor-pointer"
               >
                 Create Persona

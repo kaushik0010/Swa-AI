@@ -40,21 +40,21 @@ export function usePersonas() {
   }, [personas]);
 
   const personaExists = useCallback((id: string): boolean => {
-     return personas.some(p => p.id === id);
+    return personas.some(p => p.id === id);
   }, [personas]);
 
   // --- Delete Persona ---
   const deletePersona = useCallback((personaId: string) => {
     // Prevent deleting pre-built personas from the list they appear in
     if (PREBUILT_PERSONAS.some(p => p.id === personaId)) {
-        console.warn("Attempted to delete a pre-defined persona ID reference.");
-        setPersonas(prev => {
-            const updatedPersonas = prev.filter(p => p.id !== personaId);
-            window.localStorage.setItem(PERSONAS_STORAGE_KEY, JSON.stringify(updatedPersonas));
-            return updatedPersonas;
-        });
-        deleteAllConversationsForPersona(personaId);
-        return;
+      console.warn("Attempted to delete a pre-defined persona ID reference.");
+      setPersonas(prev => {
+        const updatedPersonas = prev.filter(p => p.id !== personaId);
+        window.localStorage.setItem(PERSONAS_STORAGE_KEY, JSON.stringify(updatedPersonas));
+        return updatedPersonas;
+      });
+      deleteAllConversationsForPersona(personaId);
+      return;
     }
 
     setPersonas(prev => {
@@ -93,15 +93,15 @@ export function usePersonas() {
   }, []);
 
   const createNewConversation = useCallback((personaId: string, firstMessage: Message): Conversation => {
-     const newConversation: Conversation = {
-       id: crypto.randomUUID(),
-       personaId: personaId,
-       title: "New Chat",
-       messages: [firstMessage],
-       lastEdited: Date.now(),
-     };
-     saveConversation(newConversation);
-     return newConversation;
+    const newConversation: Conversation = {
+      id: crypto.randomUUID(),
+      personaId: personaId,
+      title: "New Chat",
+      messages: [firstMessage],
+      lastEdited: Date.now(),
+    };
+    saveConversation(newConversation);
+    return newConversation;
   }, [saveConversation]);
 
   // --- Delete Single Conversation ---

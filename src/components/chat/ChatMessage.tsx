@@ -37,7 +37,7 @@ export function ChatMessage({ message, personaType, onRewriteClick }: ChatMessag
         >
           {message.content}
         </div>
-        
+
         {/* Rewrite Button */}
         {showRewriteButton && (
           <div className="flex justify-start">
@@ -57,9 +57,9 @@ export function ChatMessage({ message, personaType, onRewriteClick }: ChatMessag
       </div>
 
       {isUser && (
-         <div className="shrink-0 bg-muted rounded-full p-2.5">
-           <User className="h-5 w-5 text-muted-foreground" />
-         </div>
+        <div className="shrink-0 bg-muted rounded-full p-2.5">
+          <User className="h-5 w-5 text-muted-foreground" />
+        </div>
       )}
     </div>
   );

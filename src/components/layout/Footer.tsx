@@ -39,7 +39,7 @@ export function Footer() {
             </a>
           </div>
         </div>
-        
+
         {/* Mobile copyright */}
         <div className="mt-6 text-center md:hidden border-t border-border/30 pt-6">
           <span className="text-sm text-muted-foreground">
