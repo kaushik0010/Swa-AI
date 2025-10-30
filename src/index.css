@@ -44,37 +44,23 @@
 
 :root {
   --radius: 0.75rem;
-  --background: oklch(0.05 0.02 260);
+  --background: oklch(0.03 0.01 260);
   --foreground: oklch(0.98 0.01 260);
-  --card: oklch(0.08 0.03 260);
+  --card: oklch(0.06 0.02 260);
   --card-foreground: oklch(0.98 0.01 260);
-  --popover: oklch(0.08 0.03 260);
+  --popover: oklch(0.06 0.02 260);
   --popover-foreground: oklch(0.98 0.01 260);
-  --primary: oklch(0.7 0.15 160); /* #52b69a - Mid green from your palette */
+  --primary: oklch(0.75 0.16 160); /* Brighter primary */
   --primary-foreground: oklch(0.05 0.02 260);
-  --secondary: oklch(0.15 0.05 260);
+  --secondary: oklch(0.12 0.04 260);
   --secondary-foreground: oklch(0.98 0.01 260);
-  --muted: oklch(0.12 0.03 260);
-  --muted-foreground: oklch(0.7 0.05 260);
-  --accent: oklch(0.65 0.12 180); /* #34a0a4 - Teal accent */
+  --muted: oklch(0.09 0.03 260);
+  --muted-foreground: oklch(0.65 0.05 260);
+  --accent: oklch(0.68 0.14 180);
   --accent-foreground: oklch(0.05 0.02 260);
-  --destructive: oklch(0.7 0.2 25);
-  --border: oklch(0.2 0.05 260);
-  --input: oklch(0.12 0.03 260);
-  --ring: oklch(0.7 0.15 160);
-  --chart-1: oklch(0.8 0.1 120);  /* #d9ed92 - Light green */
-  --chart-2: oklch(0.75 0.12 140); /* #99d98c - Medium green */
-  --chart-3: oklch(0.7 0.15 160);  /* #52b69a - Primary green */
-  --chart-4: oklch(0.65 0.12 180); /* #34a0a4 - Teal */
-  --chart-5: oklch(0.6 0.1 200);   /* #1a759f - Dark blue */
-  --sidebar: oklch(0.08 0.03 260);
-  --sidebar-foreground: oklch(0.98 0.01 260);
-  --sidebar-primary: oklch(0.7 0.15 160);
-  --sidebar-primary-foreground: oklch(0.05 0.02 260);
-  --sidebar-accent: oklch(0.15 0.05 260);
-  --sidebar-accent-foreground: oklch(0.98 0.01 260);
-  --sidebar-border: oklch(0.2 0.05 260);
-  --sidebar-ring: oklch(0.7 0.15 160);
+  --border: oklch(0.18 0.04 260);
+  --input: oklch(0.1 0.03 260);
+  --ring: oklch(0.75 0.16 160);
 }
 
 .dark {
@@ -207,4 +193,33 @@
 /* Selection styles */
 ::selection {
   @apply bg-primary/30 text-foreground;
+}
+
+.bg-gradient-primary {
+  background: linear-gradient(135deg, #52b69a 0%, #34a0a4 50%, #1a759f 100%);
+}
+
+.bg-gradient-subtle {
+  background: linear-gradient(135deg, rgba(82, 182, 154, 0.1) 0%, rgba(52, 160, 164, 0.1) 100%);
+}
+
+.text-gradient-primary {
+  background: linear-gradient(135deg, #76c893 0%, #52b69a 50%, #34a0a4 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Glass morphism effect */
+.glass {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Enhanced focus states */
+.focus-ring:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+  border-radius: var(--radius);
 }

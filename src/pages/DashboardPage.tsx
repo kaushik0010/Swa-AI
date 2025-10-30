@@ -7,7 +7,7 @@ import { Footer } from "@/components/layout/Footer";
 import { Navbar } from "@/components/layout/Navbar";
 import type { Persona } from "@/lib/types";
 import { useState } from "react";
-import { Trash2 } from "lucide-react";
+import { Trash2, Plus } from "lucide-react";
 import { ConfirmationDialog } from "@/components/ui/ConfirmationDialog";
 
 export default function DashboardPage() {
@@ -17,8 +17,8 @@ export default function DashboardPage() {
   const [personaToDelete, setPersonaToDelete] = useState<Persona | null>(null);
 
   const handleDeleteClick = (e: React.MouseEvent, persona: Persona) => {
-    e.preventDefault(); // Prevent link navigation
-    e.stopPropagation(); // Prevent card click
+    e.preventDefault();
+    e.stopPropagation();
     setPersonaToDelete(persona);
     setIsConfirmOpen(true);
   };
@@ -34,31 +34,47 @@ export default function DashboardPage() {
   return (
     <>
       <Navbar />
-      <main>
-        <div className="container mx-auto max-w-4xl p-4 py-8">
-          <div className="flex justify-between items-center mb-6">
-            <h1 className="text-3xl font-bold">My Custom Personas</h1>
-            <Button asChild>
-              <Link to="/create">Create New Persona</Link>
+      <main className="min-h-screen">
+        <div className="container max-w-7xl mx-auto px-6 py-12">
+          {/* Header Section */}
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6 mb-12">
+            <div className="space-y-2">
+              <h1 className="text-4xl font-bold tracking-tight text-foreground">
+                My Custom Personas
+              </h1>
+              <p className="text-lg text-muted-foreground">
+                Manage your personalized AI assistants
+              </p>
+            </div>
+            <Button asChild className="bg-gradient-primary hover:shadow-lg hover:scale-105 transition-all duration-200 h-12 px-8">
+              <Link to="/create" className="flex items-center gap-2">
+                <Plus className="h-5 w-5" />
+                Create New Persona
+              </Link>
             </Button>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {personas.map((persona) => ( // Use filtered list
-              <div key={persona.id} className="relative group"> {/* Added relative container */}
+          {/* Personas Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {personas.map((persona) => (
+              <div key={persona.id} className="relative group">
                 <Link to={`/chat/${persona.id}`}>
-                  <Card className="bg-slate-800 border-slate-700 hover:bg-slate-700 h-full"> {/* Ensure cards are same height */}
-                    <CardHeader>
-                      <CardTitle className="text-slate-50">{persona.name}</CardTitle>
-                      <CardDescription>{persona.description}</CardDescription>
+                  <Card className="bg-card border-border/60 hover:border-primary/40 hover:bg-gradient-subtle transition-all duration-300 group-hover:shadow-xl h-full min-h-[140px]">
+                    <CardHeader className="p-6">
+                      <CardTitle className="text-foreground text-xl font-semibold mb-2 line-clamp-2">
+                        {persona.name}
+                      </CardTitle>
+                      <CardDescription className="text-muted-foreground leading-relaxed line-clamp-3">
+                        {persona.description}
+                      </CardDescription>
                     </CardHeader>
                   </Card>
                 </Link>
-                {/* Delete Button - Positioned top-right */}
+                {/* Delete Button */}
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="absolute top-2 right-2 text-slate-500 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity" // Show on hover
+                  className="absolute top-3 right-3 text-muted-foreground hover:text-destructive hover:bg-destructive/10 opacity-0 group-hover:opacity-100 transition-all duration-200 backdrop-blur-sm"
                   onClick={(e) => handleDeleteClick(e, persona)}
                   aria-label={`Delete ${persona.name}`}
                 >
@@ -68,10 +84,17 @@ export default function DashboardPage() {
             ))}
           </div>
 
+          {/* Empty State */}
           {personas.length === 0 && (
-            <div className="text-center p-10 bg-slate-800 rounded-lg">
-              <p className="text-slate-400">You have no custom personas yet.</p>
-              <p className="text-slate-400">Click "Create New" to get started</p>
+            <div className="text-center p-16 bg-gradient-subtle border border-border/40 rounded-2xl">
+              <div className="max-w-md mx-auto space-y-4">
+                <p className="text-xl text-muted-foreground font-medium">
+                  No custom personas yet
+                </p>
+                <p className="text-muted-foreground">
+                  Create your first AI persona to get started with personalized conversations
+                </p>
+              </div>
             </div>
           )}
         </div>

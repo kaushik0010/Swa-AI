@@ -749,7 +749,7 @@ export default function ChatPage() {
       // --- State: Showing Initial Options ---
       if (speechCoachMode === 'options') {
         return (
-          <div className="text-center p-6 bg-slate-800 rounded-lg border border-slate-700 space-y-4">
+          <div className="text-center p-6 bg-card/50 backdrop-blur-sm rounded-2xl border border-border/40 space-y-4">
             <h3 className="text-lg font-semibold">Prepare Your Rehearsal</h3>
             <p className="text-sm text-slate-400">
               How would you like to provide your speech recording?
@@ -770,7 +770,7 @@ export default function ChatPage() {
       if (speechCoachMode === 'uploading') {
         // We will build the file input logic later
         return (
-          <div className="text-center p-10 bg-slate-800 rounded-lg border border-slate-700">
+          <div className="text-center p-10 bg-card/50 backdrop-blur-sm rounded-2xl border border-border/40">
             <h3 className="text-lg font-semibold">Upload Video</h3>
             <p className="text-slate-400 mt-2">
               Upload and analysis functionality planned for a future update.
@@ -788,7 +788,7 @@ export default function ChatPage() {
         const isRecording = recorderStatus === 'recording';
 
         return (
-          <div className="p-4 bg-slate-800 rounded-lg border border-slate-700">
+          <div className="p-6 bg-card/50 backdrop-blur-sm rounded-2xl border border-border/40 space-y-6">
             <h3 className="text-lg font-semibold text-center mb-4">Live Rehearsal</h3>
 
             {/* Hidden Canvas for Snapshots */}
@@ -838,7 +838,7 @@ export default function ChatPage() {
        if (speechCoachMode === 'previewing') {
          return (
          <>
-           <div className="p-4 bg-slate-800 rounded-lg border border-slate-700 space-y-4">
+           <div className="p-6 bg-card/50 backdrop-blur-sm rounded-2xl border border-border/40 space-y-6">
              <h3 className="text-lg font-semibold">Rehearsal Preview</h3>
              {capturedAudioBlobUrl && (
                <div>
@@ -872,7 +872,7 @@ export default function ChatPage() {
        // --- NEW: Analyzing Mode ---
       if (speechCoachMode === 'analyzing' && isAnalyzing) {
          return (
-           <div className="text-center p-10 bg-slate-800 rounded-lg border border-slate-700">
+           <div className="text-center p-10 bg-card/50 backdrop-blur-sm rounded-2xl border border-border/40">
              <h3 className="text-lg font-semibold text-blue-400">Analyzing Rehearsal...</h3>
              <p className="text-slate-400 mt-2">
                The AI is processing your audio and images. Please wait.
@@ -886,7 +886,7 @@ export default function ChatPage() {
       if (speechCoachMode === 'analyzing' && !isAnalyzing && analysisResult) {
          const isErrorResult = analysisResult.startsWith("Analysis failed:") || analysisResult.startsWith("Analysis Error:");
          return (
-           <div className="p-4 bg-slate-800 rounded-lg border border-slate-700 space-y-4">
+           <div className="p-6 bg-card/50 backdrop-blur-sm rounded-2xl border border-border/40 space-y-6">
              <h3 className={`text-lg font-semibold ${isErrorResult ? 'text-red-400' : ''}`}>
                {isErrorResult ? "Analysis Problem" : "Analysis Feedback"}
              </h3>
@@ -912,7 +912,7 @@ export default function ChatPage() {
     // B. AI Model is unavailable
     if (availability === 'unavailable') {
       return (
-        <div className="text-center p-10 bg-slate-800 rounded-lg">
+        <div className="text-center p-12 bg-card/50 backdrop-blur-sm rounded-2xl border border-border/40">
           <h3 className="text-lg font-semibold text-red-400">AI Model Unavailable</h3>
           <p className="text-slate-400 mt-2">
             This browser or device is not supported, or the model failed to load.
@@ -925,7 +925,7 @@ export default function ChatPage() {
     // C. AI Model needs to be downloaded
     if (availability === 'downloadable') {
       return (
-        <div className="text-center p-10 bg-slate-800 rounded-lg">
+        <div className="text-center p-12 bg-card/50 backdrop-blur-sm rounded-2xl border border-border/40">
           <h3 className="text-lg font-semibold text-yellow-400">AI Model Download Required</h3>
           <p className="text-slate-400 mt-2">
             To use Swa-AI, you must download the on-device AI model.
@@ -940,7 +940,7 @@ export default function ChatPage() {
     // D. AI Model is downloading
     if (availability === 'downloading') {
        return (
-        <div className="text-center p-10 bg-slate-800 rounded-lg">
+        <div className="text-center p-12 bg-card/50 backdrop-blur-sm rounded-2xl border border-border/40">
           <h3 className="text-lg font-semibold text-blue-400">Downloading AI Model...</h3>
           <p className="text-slate-400 mt-2">
             Please wait. This may take a few minutes.
@@ -970,7 +970,7 @@ export default function ChatPage() {
        // Check if session creation failed but model is available
        if (!session && !isSessionLoading) {
            return (
-            <div className="text-center p-10 bg-slate-800 rounded-lg">
+            <div className="text-center p-12 bg-card/50 backdrop-blur-sm rounded-2xl border border-border/40">
               <h3 className="text-lg font-semibold text-red-400">Session Failed</h3>
               <p className="text-slate-400 mt-2">Could not initialize AI session. Please try refreshing.</p>
             </div>
@@ -979,9 +979,9 @@ export default function ChatPage() {
       
       // Session is ready, display chat
       return (
-        <div className="flex flex-col h-[calc(100vh-200px)]"> {/* Adjust height as needed */}
+        <div className="flex flex-col h-[calc(100vh-200px)] min-h-[500px]"> {/* Adjust height as needed */}
           {/* Message List */}
-          <div ref={chatContainerRef} className="flex-1 overflow-y-auto space-y-1 p-4 mb-4 rounded-lg bg-slate-800/30 border border-slate-700">
+          <div ref={chatContainerRef} className="flex-1 overflow-y-auto space-y-2 p-6 mb-6 rounded-xl bg-card/30 backdrop-blur-sm border border-border/40">
             {/* --- NEW: Placeholder for Audio/Image Personas --- */}
             {currentConvo?.messages.length === 0 && (persona.type === 'audio' || persona.type === 'image') && (
                 <p className="text-center text-slate-400 py-4 italic">
@@ -1050,7 +1050,7 @@ export default function ChatPage() {
     return (
       <>
         <Navbar />
-        <main className="container mx-auto max-w-2xl p-4 text-center py-8">
+        <main className="container max-w-2xl mx-auto px-6 py-12 text-center">
           <h1 className="text-2xl font-bold text-red-400">Persona not found</h1>
           <Button variant="link" className='cursor-pointer' asChild>
             <Link to="/">Go back to Home</Link>
@@ -1064,20 +1064,30 @@ export default function ChatPage() {
   return (
     <>
       <Navbar />
-      <main className="container mx-auto max-w-4xl p-4 py-8">
-        <div className="flex justify-between items-center mb-2"> {/* Reduced margin */}
-          <h1 className="text-3xl font-bold">
-            Chat with {persona.name}
-          </h1>
-          <Button className='cursor-pointer' variant="outline" size="icon" onClick={handleNewChat} title="Start New Chat">
-             <ListRestart className="h-4 w-4" />
+      <main className="container max-w-4xl mx-auto px-6 py-12">
+        <div className="flex justify-between items-center mb-8">
+          <div className="space-y-2">
+            <h1 className="text-4xl font-bold tracking-tight text-foreground">
+              Chat with {persona.name}
+            </h1>
+            <p className="text-lg text-muted-foreground">
+              {persona.description}
+            </p>
+          </div>
+          <Button 
+            className='cursor-pointer h-11 w-11 hover:scale-105 transition-all duration-200' 
+            variant="outline" 
+            size="icon" 
+            onClick={handleNewChat} 
+            title="Start New Chat"
+          >
+            <ListRestart className="h-5 w-5" />
           </Button>
         </div>
         
-        {/* --- ADD CONVERSATION LIST HERE --- */}
         <ConversationList conversations={pastConversations} persona={persona} />
         
-        {renderContent()} {/* This contains the main chat UI */}
+        {renderContent()}
       </main>
       <Footer />
       <Dialog open={isRewriteDialogOpen} onOpenChange={setIsRewriteDialogOpen}>
