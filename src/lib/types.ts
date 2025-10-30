@@ -1,7 +1,6 @@
 import type z from "zod";
 import type { PersonaTypeEnum } from "./schemas";
 
-// src/lib/types.ts
 export interface Persona {
   id: string;
   name: string;
@@ -13,13 +12,13 @@ export interface Persona {
 export interface Message {
   role: 'user' | 'assistant';
   content: string;
-  timestamp: number; // Add timestamp for ordering
+  timestamp: number;
 }
 
 export interface Conversation {
-  id: string; // Unique ID for this specific chat session
-  personaId: string; // Which persona this chat is with
-  title: string; // Title (e.g., "Dragon Coding Story")
+  id: string; 
+  personaId: string; 
+  title: string; 
   messages: Message[];
-  lastEdited: number; // Timestamp for sorting later
+  lastEdited: number; 
 }

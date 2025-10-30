@@ -1,9 +1,8 @@
-// src/lib/usePersonas.ts
 import { PREBUILT_PERSONAS } from '@/lib/prebuilt-personas';
 import type { Conversation, Message, Persona } from '@/lib/types';
 import { useState, useEffect, useCallback } from 'react';
 
-// This is our key for localStorage
+// key for localStorage
 const PERSONAS_STORAGE_KEY = 'swa-ai-personas';
 const CONVERSATIONS_STORAGE_KEY = 'swa-ai-conversations';
 
@@ -44,18 +43,16 @@ export function usePersonas() {
      return personas.some(p => p.id === id);
   }, [personas]);
 
-  // --- NEW: Delete Persona ---
+  // --- Delete Persona ---
   const deletePersona = useCallback((personaId: string) => {
     // Prevent deleting pre-built personas from the list they appear in
     if (PREBUILT_PERSONAS.some(p => p.id === personaId)) {
         console.warn("Attempted to delete a pre-defined persona ID reference.");
-        // We only remove custom ones from localStorage/state
         setPersonas(prev => {
             const updatedPersonas = prev.filter(p => p.id !== personaId);
             window.localStorage.setItem(PERSONAS_STORAGE_KEY, JSON.stringify(updatedPersonas));
             return updatedPersonas;
         });
-        // Also delete associated conversations
         deleteAllConversationsForPersona(personaId);
         return;
     }
@@ -65,7 +62,6 @@ export function usePersonas() {
       window.localStorage.setItem(PERSONAS_STORAGE_KEY, JSON.stringify(updatedPersonas));
       return updatedPersonas;
     });
-    // Also delete associated conversations
     deleteAllConversationsForPersona(personaId);
   }, [conversations]);
 
@@ -73,7 +69,7 @@ export function usePersonas() {
   const getConversationsForPersona = useCallback((personaId: string): Conversation[] => {
     return conversations
       .filter(c => c.personaId === personaId)
-      .sort((a, b) => b.lastEdited - a.lastEdited); // Sort newest first
+      .sort((a, b) => b.lastEdited - a.lastEdited);
   }, [conversations]);
 
   const getConversation = useCallback((convoId: string): Conversation | undefined => {
@@ -89,7 +85,6 @@ export function usePersonas() {
         newConversations = [...prev];
         newConversations[existingIndex] = conversation;
       } else {
-        // Add new conversation
         newConversations = [...prev, conversation];
       }
       window.localStorage.setItem(CONVERSATIONS_STORAGE_KEY, JSON.stringify(newConversations));
@@ -101,7 +96,7 @@ export function usePersonas() {
      const newConversation: Conversation = {
        id: crypto.randomUUID(),
        personaId: personaId,
-       title: "New Chat", // We'll update this later with AI
+       title: "New Chat",
        messages: [firstMessage],
        lastEdited: Date.now(),
      };
@@ -109,7 +104,7 @@ export function usePersonas() {
      return newConversation;
   }, [saveConversation]);
 
-  // --- NEW: Delete Single Conversation ---
+  // --- Delete Single Conversation ---
   const deleteConversation = useCallback((convoId: string) => {
     setConversations(prev => {
       const updatedConvos = prev.filter(c => c.id !== convoId);
@@ -118,7 +113,7 @@ export function usePersonas() {
     });
   }, []);
 
-  // --- NEW: Delete All Conversations for Persona ---
+  // --- Delete All Conversations for Persona ---
   const deleteAllConversationsForPersona = useCallback((personaId: string) => {
     setConversations(prev => {
       const updatedConvos = prev.filter(c => c.personaId !== personaId);

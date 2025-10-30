@@ -56,7 +56,7 @@ export function ConversationList({ conversations, persona }: ConversationListPro
           <Button
             variant="ghost"
             size="sm"
-            className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors px-3 py-2 h-auto"
+            className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors px-3 py-2 h-auto cursor-pointer"
             onClick={handleDeleteAllClick}
             aria-label={`Delete all conversations for ${persona.name}`}
             title="Delete all conversations"
@@ -83,7 +83,7 @@ export function ConversationList({ conversations, persona }: ConversationListPro
             <Button
               variant="ghost"
               size="icon"
-              className="ml-3 text-muted-foreground hover:text-destructive hover:bg-destructive/10 opacity-0 group-hover:opacity-100 transition-all duration-200 h-8 w-8 shrink-0"
+              className="ml-3 text-muted-foreground hover:text-destructive hover:bg-destructive/10 opacity-0 group-hover:opacity-100 transition-all duration-200 h-8 w-8 shrink-0 cursor-pointer"
               onClick={(e) => handleDeleteClick(e, convo)}
               aria-label={`Delete conversation: ${convo.title}`}
             >

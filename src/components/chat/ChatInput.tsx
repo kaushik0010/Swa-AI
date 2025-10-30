@@ -115,7 +115,7 @@ export function ChatInput({
               type="button"
               variant="ghost"
               size="icon"
-              className="absolute left-2 top-2 text-muted-foreground hover:text-foreground hover:bg-primary/10 transition-all duration-200 h-8 w-8"
+              className="absolute left-2 cursor-pointer top-2 text-muted-foreground hover:text-foreground hover:bg-primary/10 transition-all duration-200 h-8 w-8"
               onClick={handleUploadClick}
               aria-label="Upload Media"
               title={`Upload ${acceptTypes.replace('/*', '')}`}
@@ -139,7 +139,7 @@ export function ChatInput({
           type="submit"
           disabled={isLoading || (!input.trim() && !attachedFile)}
           size="icon"
-          className="absolute right-2 bottom-2 bg-gradient-primary hover:shadow-lg hover:scale-105 transition-all duration-200 h-8 w-8"
+          className="absolute cursor-pointer right-2 bottom-2 bg-gradient-primary hover:shadow-lg hover:scale-105 transition-all duration-200 h-8 w-8"
         >
           <Send className="h-4 w-4" />
         </Button>

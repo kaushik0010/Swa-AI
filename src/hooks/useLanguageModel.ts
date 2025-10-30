@@ -1,7 +1,6 @@
-// src/hooks/useLanguageModel.ts
 import { useState, useEffect, useCallback } from 'react';
 
-// Define the types from the API
+// types from the API
 type Availability = 'available' | 'unavailable' | 'downloading' | 'downloadable';
 
 interface ModelParams {
@@ -30,7 +29,7 @@ interface LanguageModel {
     temperature?: number;
     expectedInputs?: ExpectedInput[];
     expectedOutputs?: ExpectedOutput[];
-  }): Promise<any>; // Using 'any' for the session for now
+  }): Promise<any>;
   params(): Promise<ModelParams>;
 }
 
@@ -70,32 +69,27 @@ export function useLanguageModel() {
   // Public function to trigger the download
   const downloadModel = useCallback(async () => {
     // Ensure LanguageModel exists and has the create method
-    const LanguageModelAPI = (window as any).LanguageModel; // Adjust 'LanguageModel' as needed
+    const LanguageModelAPI = (window as any).LanguageModel;
     if (availability !== 'downloadable' || typeof LanguageModelAPI?.create !== 'function') {
         console.warn("Download cannot start: Status is not 'downloadable' or API is missing.");
         return;
     }
 
     setAvailability('downloading');
-    setDownloadProgress(0); // Reset progress at the start
+    setDownloadProgress(0);
 
     try {
         console.log("Attempting to create session to trigger/monitor download...");
         // Create a session to trigger the download, with a monitor
         await LanguageModelAPI.create({
-            // Add any required options like expectedInputLanguages if needed by .create()
-            // expectedInputLanguages: ['en'],
-            // expectedOutputLanguage: 'en',
             monitor(m: any) {
                 m.addEventListener('downloadprogress', (e: any) => {
-                    // Calculate progress based on loaded/total if available
+                    // Calculate progress based on loaded/total
                     let progress = 0;
                     if (e.total > 0) {
                         progress = Math.round((e.loaded / e.total) * 100);
                     } else {
-                        // Fallback if e.total isn't provided (might happen in some cases)
-                        // This provides some visual feedback even without exact percentage
-                        progress = Math.min(downloadProgress + 5, 99); // Increment slowly towards 99
+                        progress = Math.min(downloadProgress + 5, 99);
                     }
                     console.log(`Download progress: ${progress}%`);
                     setDownloadProgress(progress);
@@ -103,18 +97,15 @@ export function useLanguageModel() {
             },
         });
 
-        // --- THIS IS THE KEY CHANGE ---
-        // Only set to 'available' AFTER the create() promise successfully resolves.
         console.log("Model create() promise resolved. Setting availability to 'available'.");
         setAvailability('available');
-        setDownloadProgress(100); // Ensure progress shows 100% on success
+        setDownloadProgress(100);
 
     } catch (e) {
         console.error("Error during model download/creation:", e);
-        setAvailability('unavailable'); // Or maybe back to 'downloadable' to allow retry?
-        setDownloadProgress(0); // Reset progress on error
+        setAvailability('unavailable'); 
+        setDownloadProgress(0); 
     }
-    // Dependency array should include all state/props read inside, plus potentially LanguageModelAPI if it could change (unlikely for global)
   }, [availability, setAvailability, setDownloadProgress, downloadProgress]);
 
   // Public function to create a new, ready-to-use chat session
@@ -140,7 +131,7 @@ export function useLanguageModel() {
     const inputs = expectedInputsOverride || [{ type: 'text', languages: ['en'] }];
     const outputs: ExpectedOutput[] = [{ type: 'text', languages: ['en'] }];
 
-    // As per the docs, use initialPrompts to set the system persona
+    // As per the docs, initialPrompts to set the system persona
     const session = await LanguageModel.create({
       initialPrompts: initialPrompts,
       topK: newTopK,
@@ -151,8 +142,6 @@ export function useLanguageModel() {
 
     const sessionWithDestroy = session as any; 
     sessionWithDestroy.destroy = () => {
-       // Placeholder: The actual Chrome API might have a different way to destroy/clean up.
-       // For now, this allows our component cleanup logic to work.
        console.log("Session destroy called"); 
     };
 
@@ -163,14 +152,13 @@ export function useLanguageModel() {
   // --- Function to Create Multimodal Session ---
   const createMultimodalSession = useCallback(async (
     systemPrompt: string,
-    inputs: ExpectedInput[], // Define the expected inputs
-    outputs: ExpectedOutput[] = [{ type: 'text', languages: ['en'] }] // Default output
+    inputs: ExpectedInput[], 
+    outputs: ExpectedOutput[] = [{ type: 'text', languages: ['en'] }] 
   ) => {
     if (availability !== 'available' || !modelParams) {
       throw new Error("Model is not available or params not loaded.");
     }
 
-    // Use default parameters for multimodal for now, can be adjusted
     const defaultTopK = modelParams.defaultTopK;
     const defaultTemperature = modelParams.defaultTemperature;
 
@@ -180,11 +168,11 @@ export function useLanguageModel() {
       initialPrompts: [{ role: 'system', content: systemPrompt }],
       topK: defaultTopK,
       temperature: defaultTemperature,
-      expectedInputs: inputs, // <-- Set multimodal inputs
+      expectedInputs: inputs,
       expectedOutputs: outputs,
     });
 
-    // Add destroy method placeholder
+    // destroy method placeholder
     const sessionWithDestroy = session as any;
     sessionWithDestroy.destroy = () => console.log("Multimodal session destroy called (placeholder)");
     return sessionWithDestroy;
@@ -202,12 +190,10 @@ export function useLanguageModel() {
     // Define a specific, concise system prompt for title generation
     const titleSystemPrompt = "You are a title generator. Create a very short, concise title (max 5 words) for a conversation based on the user's first message and the assistant's first reply. Focus on the main topic. Do not use quotes or introductory phrases.";
 
-    let session: any = null; // Use 'any' for this temporary session
+    let session: any = null; 
     try {
-      // Create a temporary, lightweight session just for title generation
       session = await LanguageModel.create({
         initialPrompts: [{ role: 'system', content: titleSystemPrompt }],
-        // Use default parameters for this simple task
         topK: modelParams.defaultTopK,
         temperature: modelParams.defaultTemperature,
       });
@@ -216,7 +202,7 @@ export function useLanguageModel() {
 
       const rawTitle = await session.prompt(titlePrompt);
 
-      // Basic cleanup (remove potential quotes, extra spaces)
+      // Basic cleanup
       const cleanedTitle = rawTitle.replace(/["']/g, "").trim();
 
       return cleanedTitle || "New Chat"; 

@@ -5,7 +5,7 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-// --- NEW: Function to convert Data URL to Blob ---
+// --- Function to convert Data URL to Blob ---
 export async function dataUrlToBlob(dataUrl: string): Promise<Blob | null> {
   try {
     const response = await fetch(dataUrl);

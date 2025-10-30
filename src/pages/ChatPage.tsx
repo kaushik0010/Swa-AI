@@ -1,4 +1,3 @@
-// src/pages/ChatPage.tsx
 import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Navbar } from "@/components/layout/Navbar";
@@ -10,7 +9,7 @@ import { ChatInput } from '@/components/chat/ChatInput';
 import { ChatMessage } from '@/components/chat/ChatMessage';
 import { useEffect, useMemo, useState, useRef, useCallback } from 'react';
 import { toast } from "sonner";
-import { CircleDot, ListRestart, Mic, Square, Upload, Video } from 'lucide-react'; // Icon for new chat button
+import { CircleDot, ListRestart, Mic, Square, Upload, Video } from 'lucide-react';
 import type { Conversation, Message, Persona } from '@/lib/types';
 import { ConversationList } from '@/components/chat/ConversationList';
 import { useReactMediaRecorder } from "react-media-recorder";
@@ -21,8 +20,7 @@ import { Textarea } from '@/components/ui/textarea';
 
 interface ChatSession {
   promptStreaming: (prompt: string | { role: string; content: any }[]) => Promise<ReadableStream<string>>;
-  destroy: () => void; // Add destroy method
-  // Add other session methods if needed
+  destroy: () => void;
 }
 
 export default function ChatPage() {
@@ -32,8 +30,8 @@ export default function ChatPage() {
 
   const {
     getPersona,
-    personaExists, // <-- New
-    addPersona,    // <-- New
+    personaExists,
+    addPersona,
     getConversation,
     saveConversation,
     createNewConversation,
@@ -52,11 +50,11 @@ export default function ChatPage() {
   // --- State ---
   const [currentConvo, setCurrentConvo] = useState<Conversation | null>(null);
   const [session, setSession] = useState<ChatSession | null>(null);
-  const [isLoading, setIsLoading] = useState(false); // Loading AI response
-  const [isSessionLoading, setIsSessionLoading] = useState(false); // Loading the session itself
+  const [isLoading, setIsLoading] = useState(false); 
+  const [isSessionLoading, setIsSessionLoading] = useState(false); 
   const chatContainerRef = useRef<HTMLDivElement>(null);
 
-  // --- Add State for Speech Coach UI ---
+  // --- State for Speech Coach UI ---
   type SpeechCoachMode = 'options' | 'uploading' | 'capturing' | 'previewing' | 'analyzing';
   const [speechCoachMode, setSpeechCoachMode] = useState<SpeechCoachMode>('options');
   const [capturedAudioBlobUrl, setCapturedAudioBlobUrl] = useState<string | null>(null);
@@ -75,16 +73,16 @@ export default function ChatPage() {
   // --- Refs for video and canvas ---
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const snapshotIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null); // Ref for interval timer
-  const stopTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null); // Ref for stop timer
+  const snapshotIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const stopTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null); 
 
 
   // --- Media Recorder Hook ---
   const {
-    status: recorderStatus, // 'idle', 'recording', 'stopped', 'acquiring_media'
+    status: recorderStatus, 
     startRecording,
     stopRecording,
-    previewStream, // Live stream for the video preview
+    previewStream, 
   } = useReactMediaRecorder({
     video: true,
     audio: true,
@@ -104,10 +102,10 @@ export default function ChatPage() {
         setElapsedTime(Math.floor((Date.now() - recordingStartTime) / 1000));
       }, 1000);
     } else {
-      setElapsedTime(0); // Reset timer when not recording
+      setElapsedTime(0); 
     }
     return () => {
-      if (interval) clearInterval(interval); // Cleanup interval
+      if (interval) clearInterval(interval); 
     };
   }, [recorderStatus, recordingStartTime]);
 
@@ -133,20 +131,18 @@ export default function ChatPage() {
   }, [personaId, getConversationsForPersona]);
 
 
-  // --- Effect 1: Load Conversation Data ---
+  // --- Effect: Load Conversation Data ---
   useEffect(() => {
-    // Determine the conversation to load based on URL query param
     const loadedConvo = convoId ? getConversation(convoId) : null;
     
     // Validate if the loaded convo belongs to the current persona
     if (loadedConvo && loadedConvo.personaId !== personaId) {
-      // If mismatch, clear convoId from URL and state
       setCurrentConvo(null);
       navigate(`/chat/${personaId}`, { replace: true }); 
     } else {
-      setCurrentConvo(loadedConvo || null); // Load convo or set to null if starting fresh
+      setCurrentConvo(loadedConvo || null); 
     }
-  }, [personaId, convoId, getConversation, navigate]); // Dependencies related to identifying the conversation
+  }, [personaId, convoId, getConversation, navigate]); 
 
 
   // --- Effect 2: Manage AI Session Lifecycle ---
@@ -171,48 +167,42 @@ export default function ChatPage() {
           expectedInputs = [{ type: 'image' }, { type: 'text' }];
       } else if (persona.type === 'audio') {
           expectedInputs = [{ type: 'audio' }, { type: 'text' }];
-      } else { // Text persona (allows both image/audio uploads + text)
+      } else {
           expectedInputs = [{ type: 'image' }, { type: 'audio' }, { type: 'text' }];
       }
 
       createChatSession(persona.systemPrompt, initialMessages, expectedInputs)
         .then(newSession => {
-          setSession(newSession); // Set the session state
+          setSession(newSession); 
           toast.success("AI session initialized!", { id: loadingToastId });
         })
         .catch(e => {
           console.error("Session creation failed:", e);
           let errorMsg = `Failed to create AI session: ${e.message}`;
-           if (e.name === 'NotAllowedError') { // Catch specific error here too
+           if (e.name === 'NotAllowedError') { 
                errorMsg = `Session creation failed: ${persona.type} capability not available.`;
            }
           toast.error(errorMsg, { id: loadingToastId });
         })
         .finally(() => {
-          setIsSessionLoading(false); // Ensure loading state is turned off
+          setIsSessionLoading(false); 
         });
     }
 
     // Cleanup function for THIS effect
     return () => {
-      // Intentionally left blank for now. 
-      // We destroy the session when personaId/convoId changes (handled by the effect re-running)
-      // or when the component unmounts (implicitly handled).
-      // Adding session?.destroy() here caused the loop.
+
     };
-    // Dependencies: Re-run ONLY when these specific things change.
   }, [persona, availability, session, isSessionLoading, currentConvo, createChatSession]);
 
    // --- Update createChatSession signature in useLanguageModel ---
-   // We need to modify the hook to accept history
-   // This will require modifying `src/hooks/useLanguageModel.ts` (see Step 4 below)
 
   // Auto-scroll
   useEffect(() => {
     if (chatContainerRef.current) {
       chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
     }
-  }, [currentConvo?.messages]); // Scroll when messages change
+  }, [currentConvo?.messages]); 
 
   const handleFileSelect = useCallback((file: File | null) => {
     setAttachedFile(file);
@@ -220,7 +210,7 @@ export default function ChatPage() {
 
   const handleRewriteClick = (message: Message, index: number) => {
     setMessageToRewrite({ message, index });
-    setRewriteInstruction(""); // Clear previous instruction
+    setRewriteInstruction(""); 
     setIsRewriteDialogOpen(true);
   };
 
@@ -234,12 +224,11 @@ export default function ChatPage() {
      };
 
      setIsRewriting(true);
-     setIsRewriteDialogOpen(false); // Close dialog immediately
+     setIsRewriteDialogOpen(false); 
      const { message: originalMessage, index: messageIndex } = messageToRewrite;
      const loadingToastId = toast.loading("Rewriting response...");
 
      // --- Construct the Rewrite Prompt ---
-     // Find the user message that prompted this response (if available)
      const precedingUserMessage = currentConvo.messages[messageIndex - 1]?.role === 'user'
          ? currentConvo.messages[messageIndex - 1].content
          : "[Context: No preceding user message found in history]";
@@ -267,18 +256,14 @@ export default function ChatPage() {
 
       let rewrittenContent = "";
      try {
-         // Use promptStreaming (or prompt if preferred) - using streaming here
          const stream = await session.promptStreaming(rewriteMetaPrompt);
 
          for await (const chunk of stream) {
              rewrittenContent += chunk;
-             // Update the message content in real-time (optional, can just update at end)
              setCurrentConvo(prev => {
                     if (!prev) return null;
                     const updatedMessages = [...prev.messages];
-                    // Ensure index is valid and prevent modifying if message changed
                     if (messageIndex >= 0 && messageIndex < updatedMessages.length && updatedMessages[messageIndex].timestamp === originalMessage.timestamp) {
-                         // Apply stutter removal to the chunk relative to the current rewritten content
                          let currentAccumulated = updatedMessages[messageIndex].content;
                          let cleanedChunk = chunk;
                          const lastWordMatch = currentAccumulated.match(/(\w+)$/);
@@ -290,7 +275,6 @@ export default function ChatPage() {
                                  cleanedChunk = chunk.substring(firstWordMatch[1].length).trimStart();
                              }
                          }
-                        // Update content with cleaned chunk
                         updatedMessages[messageIndex] = { ...updatedMessages[messageIndex], content: currentAccumulated + cleanedChunk };
                     }
                     return { ...prev, messages: updatedMessages };
@@ -306,7 +290,7 @@ export default function ChatPage() {
                   finalMessages[messageIndex] = {
                       ...finalMessages[messageIndex],
                       content: finalRewrittenContent,
-                      timestamp: Date.now() // Update timestamp on rewrite
+                      timestamp: Date.now()
                   };
               }
              const finalConvo = { ...prev, messages: finalMessages, lastEdited: Date.now() };
@@ -319,18 +303,18 @@ export default function ChatPage() {
      } catch (error: any) {
          console.error("Error during rewrite:", error);
             let errorMsg = `Rewrite failed: ${error.message || 'Unknown error'}`;
-            if (error.name === 'NotAllowedError') { // Handle potential capability error
+            if (error.name === 'NotAllowedError') { 
                errorMsg = `Rewrite failed: Necessary capability not available.`;
             }
             toast.error(errorMsg, { id: loadingToastId });
      } finally {
          setIsRewriting(false);
-         setMessageToRewrite(null); // Clear the message being rewritten
+         setMessageToRewrite(null); 
          setRewriteInstruction("");
      }
   }, [messageToRewrite, rewriteInstruction, currentConvo, persona, session, saveConversation]);
 
-  // --- NEW: Analyze Rehearsal Function ---
+  // --- Analyze Rehearsal Function ---
   const analyzeRehearsal = useCallback(async () => {
     if (!persona || !capturedAudioBlobUrl || capturedImageSnapshots.length === 0) {
       toast.error("Missing audio or image data for analysis.");
@@ -349,7 +333,7 @@ export default function ChatPage() {
     const loadingToastId = toast.loading("Analyzing rehearsal...");
 
     let session: any = null;
-    let analysisSuccess = false; // Flag to track success
+    let analysisSuccess = false; 
     let resultText = "";
 
     try {
@@ -373,8 +357,7 @@ export default function ChatPage() {
         [ { type: 'audio' }, { type: 'image' }, { type: 'text' } ] // Keep expected inputs simple
       );
 
-      // 3. Construct Multimodal Prompt Array (Refined Structure based on demos)
-      // Send each piece of media as separate 'user' role input, followed by the text prompt.
+      // 3. Construct Multimodal Prompt Array
       const multimodalPromptPayload = [
         // Audio first
         { role: 'user', content: [{ type: 'audio', value: audioBlob }] },
@@ -386,21 +369,20 @@ export default function ChatPage() {
       console.log("Sending multimodal prompt payload:", multimodalPromptPayload);
 
 
-      // 4. Call the AI (Using non-streaming `prompt` for analysis result)
+      // 4. Call the AI 
       const result = await session.prompt(multimodalPromptPayload);
       resultText = result || "Analysis complete, but no text feedback received.";
-      setAnalysisResult(resultText); // Handle empty result
+      setAnalysisResult(resultText);
       analysisSuccess = true;
       toast.success("Analysis complete!", { id: loadingToastId });
 
       // --- Save Analysis as a Conversation ---
       if (analysisSuccess) {
          const now = Date.now();
-         // Create placeholder user message
          const userPseudoMessage: Message = {
              role: 'user',
              content: `[Speech Rehearsal Analyzed on ${new Date(now).toLocaleDateString()}]`,
-             timestamp: now -1 // Slightly earlier timestamp
+             timestamp: now -1 
          };
          // Create assistant message with the result
          const assistantResultMessage: Message = {
@@ -408,7 +390,7 @@ export default function ChatPage() {
              content: resultText,
              timestamp: now
          };
-         // Generate title (could refine this later)
+         // Generate title
          const convoTitle = `Speech Analysis - ${new Date(now).toLocaleString()}`;
 
          // Create the conversation object
@@ -426,7 +408,7 @@ export default function ChatPage() {
 
          // Navigate to the new conversation's URL
          navigate(`/chat/${persona.id}?convo=${newAnalysisConvo.id}`, { replace: true });
-         setSpeechCoachMode('options'); // Reset mode for the next interaction
+         setSpeechCoachMode('options'); 
       }
 
     } catch (error: any) {
@@ -436,18 +418,15 @@ export default function ChatPage() {
       let errorMessage = `Analysis failed: ${error.message || 'Unknown error'}`;
       if (error.name === 'NotAllowedError') {
          errorMessage = "Analysis failed: Multimodal capability (audio/image) is not available or enabled on this system. Please check browser flags and system requirements.";
-         setAnalysisResult(errorMessage); // Display error message in the result area
+         setAnalysisResult(errorMessage);
       } else {
-         setAnalysisResult(`Analysis Error: ${error.message}`); // Display other errors too
+         setAnalysisResult(`Analysis Error: ${error.message}`); 
       }
       toast.error(errorMessage, { id: loadingToastId });
-      setSpeechCoachMode('analyzing'); // Stay in analyzing mode to show the error message
-      // We no longer go back to 'previewing' on error
-      // setSpeechCoachMode('previewing');
-      // --- End Error Handling ---
+      setSpeechCoachMode('analyzing');
 
     } finally {
-      setIsAnalyzing(false); // Ensure loading stops even on error
+      setIsAnalyzing(false);
       session?.destroy();
     }
   }, [
@@ -541,11 +520,10 @@ export default function ChatPage() {
   // --- Handle New Chat Button ---
   const handleNewChat = () => {
      if (personaId) {
-        // Destroy current session before navigating
         session?.destroy(); 
         setSession(null);
         setCurrentConvo(null);
-        navigate(`/chat/${personaId}`); // Navigate to base URL to start fresh
+        navigate(`/chat/${personaId}`); 
      }
   };
 
@@ -571,19 +549,18 @@ export default function ChatPage() {
         payloadParts.push({ type: 'text', value: userInput.trim() });
     }
 
-    let mediaType: 'audio' | 'image' | null = null; // Track media type
+    let mediaType: 'audio' | 'image' | null = null; 
 
     if (file) {
-        // Convert File to Blob (File is already a Blob subclass)
         const mediaBlob: Blob = file;
         mediaType = file.type.startsWith('image/') ? 'image' :
                     file.type.startsWith('audio/') ? 'audio' : null;
 
         if (mediaType) {
-            payloadParts.unshift({ type: mediaType, value: mediaBlob }); // Add media *before* text
+            payloadParts.unshift({ type: mediaType, value: mediaBlob }); 
         } else {
             toast.error("Unsupported file type attached.");
-            return; // Don't proceed if file type is wrong
+            return; 
         }
     }
     
@@ -597,7 +574,7 @@ export default function ChatPage() {
 
       navigate(`/chat/${persona.id}?convo=${convoToUpdate.id}`, { replace: true });
       
-      // --- FIX: Save Pre-built Persona on First *Actual* Use ---
+      // --- Save Pre-built Persona on First Use ---
       const isPrebuilt = PREBUILT_PERSONAS.some(p => p.id === persona.id);
       // Check if it's prebuilt AND doesn't already exist in the custom list
       if (isPrebuilt && !personaExists(persona.id)) {
@@ -616,7 +593,7 @@ export default function ChatPage() {
     const assistantMessagePlaceholder: Message = { role: 'assistant', content: "", timestamp: Date.now() + 1 };
     convoToUpdate.messages.push(assistantMessagePlaceholder);
     
-    setCurrentConvo(convoToUpdate); // Update UI immediately
+    setCurrentConvo(convoToUpdate); 
     setIsLoading(true);
     setAttachedFile(null);
 
@@ -624,14 +601,14 @@ export default function ChatPage() {
     let accumulatedResponse = "";
 
     try {
-      // Pass only the new user message to promptStreaming (history is already in the session)
+      // Pass only the new user message to promptStreaming
       console.log("Sending multimodal payload:", payloadParts);
       const stream = await session.promptStreaming([{ role: 'user', content: payloadParts }]); 
 
       for await (const chunk of stream) {
         accumulatedResponse += chunk;
         setCurrentConvo(prev => {
-           if (!prev) return null; // Should not happen
+           if (!prev) return null; 
            const updatedMessages = [...prev.messages];
            const lastMsgIndex = updatedMessages.length - 1;
            const lastMsg = { ...updatedMessages[lastMsgIndex] };
@@ -639,7 +616,7 @@ export default function ChatPage() {
            let currentContent = lastMsg.content;
            let cleanedChunk = chunk;
 
-           // Simple stutter removal (can be improved)
+           // Simple stutter removal
            const lastWordMatch = currentContent.match(/(\w+)$/); 
            const firstWordMatch = chunk.match(/^(\w+)/);
            if (lastWordMatch && firstWordMatch && lastWordMatch[1] === firstWordMatch[1]) {
@@ -650,7 +627,7 @@ export default function ChatPage() {
              }
            }
            lastMsg.content += cleanedChunk;
-           lastMsg.timestamp = Date.now(); // Update timestamp as content arrives
+           lastMsg.timestamp = Date.now(); 
 
            updatedMessages[lastMsgIndex] = lastMsg;
            return { ...prev, messages: updatedMessages };
@@ -678,21 +655,17 @@ export default function ChatPage() {
       const titleMatch = accumulatedResponse.match(/^TITLE:\s*(.*)\n/i);
       if (titleMatch && titleMatch[1]) {
         const extractedTitle = titleMatch[1].trim();
-        // Only update title if it's not the default "New Chat" or if we generated a new one
         if (extractedTitle && (currentConvo?.title === "New Chat" || isNewConversation)) {
            finalTitle = extractedTitle;
            toast.info(`Story title suggested: "${finalTitle}"`);
-           // Remove the TITLE: line from the content displayed to the user
-          //  finalContent = accumulatedResponse.substring(titleMatch[0].length).trimStart();
         }
       }
 
 
       if (isNewConversation && finalTitle === "New Chat") {
-        finalTitle = await generateTitle(userInput, finalContent); // Use finalContent here
+        finalTitle = await generateTitle(userInput, finalContent); 
         toast.info(`Chat title set to: "${finalTitle}"`);
       }
-      // Final update to state and localStorage
       setCurrentConvo(prev => {
         if (!prev) return null;
 
@@ -710,11 +683,11 @@ export default function ChatPage() {
         // Update title and save
         const finalConvo: Conversation = {
             ...prev,
-            title: finalTitle, // <-- Set the final title
+            title: finalTitle,
             messages: finalMessages,
             lastEdited: Date.now()
         };
-        saveConversation(finalConvo); // Save with title and cleaned message
+        saveConversation(finalConvo);
         return finalConvo;
       });
 
@@ -729,7 +702,7 @@ export default function ChatPage() {
 
       // --- Display Saved Analysis ---
       if (currentConvo) {
-         // Find the assistant message (should be the second one)
+         // Find the assistant message
          const savedResult = currentConvo.messages.find(m => m.role === 'assistant')?.content;
          return (
             <div className="p-4 bg-slate-800 rounded-lg border border-slate-700 space-y-4">
@@ -768,7 +741,6 @@ export default function ChatPage() {
 
       // --- State: Upload Mode Placeholder ---
       if (speechCoachMode === 'uploading') {
-        // We will build the file input logic later
         return (
           <div className="text-center p-10 bg-card/50 backdrop-blur-sm rounded-2xl border border-border/40">
             <h3 className="text-lg font-semibold">Upload Video</h3>
@@ -832,7 +804,7 @@ export default function ChatPage() {
             </div>
           </div>
         );
-      } // --- End Capture Mode ---
+      } 
 
       // --- State: Previewing Captured Media ---
        if (speechCoachMode === 'previewing') {
@@ -856,7 +828,6 @@ export default function ChatPage() {
                   </div>
                 </div>
              )}
-              {/* TODO: Add Analyze Button - We'll wire this up on Day 5 */}
               <Button className="w-full cursor-pointer" onClick={analyzeRehearsal}>
                  Analyze Rehearsal
               </Button>
@@ -869,7 +840,7 @@ export default function ChatPage() {
          );
        }
 
-       // --- NEW: Analyzing Mode ---
+       // --- Analyzing Mode ---
       if (speechCoachMode === 'analyzing' && isAnalyzing) {
          return (
            <div className="text-center p-10 bg-card/50 backdrop-blur-sm rounded-2xl border border-border/40">
@@ -877,12 +848,11 @@ export default function ChatPage() {
              <p className="text-slate-400 mt-2">
                The AI is processing your audio and images. Please wait.
              </p>
-             {/* Optional: Add a spinner icon here */}
            </div>
          );
-      } // --- End Analyzing ---
+      }
 
-      // --- NEW: Displaying Analysis Result ---
+      // --- Displaying Analysis Result ---
       if (speechCoachMode === 'analyzing' && !isAnalyzing && analysisResult) {
          const isErrorResult = analysisResult.startsWith("Analysis failed:") || analysisResult.startsWith("Analysis Error:");
          return (
@@ -896,7 +866,7 @@ export default function ChatPage() {
                 </pre>
              </div>
              <Button variant="outline" className="w-full cursor-pointer" onClick={() => {
-                 setSpeechCoachMode('options'); // Go back to start
+                 setSpeechCoachMode('options'); 
                  setAnalysisResult(null);
                  setCapturedAudioBlobUrl(null);
                  setCapturedImageSnapshots([]);
@@ -909,7 +879,7 @@ export default function ChatPage() {
 
     }
 
-    // B. AI Model is unavailable
+    // AI Model is unavailable
     if (availability === 'unavailable') {
       return (
         <div className="text-center p-12 bg-card/50 backdrop-blur-sm rounded-2xl border border-border/40">
@@ -922,7 +892,7 @@ export default function ChatPage() {
       );
     }
 
-    // C. AI Model needs to be downloaded
+    // AI Model needs to be downloaded
     if (availability === 'downloadable') {
       return (
         <div className="text-center p-12 bg-card/50 backdrop-blur-sm rounded-2xl border border-border/40">
@@ -937,7 +907,7 @@ export default function ChatPage() {
       );
     }
     
-    // D. AI Model is downloading
+    // AI Model is downloading
     if (availability === 'downloading') {
        return (
         <div className="text-center p-12 bg-card/50 backdrop-blur-sm rounded-2xl border border-border/40">
@@ -979,16 +949,15 @@ export default function ChatPage() {
       
       // Session is ready, display chat
       return (
-        <div className="flex flex-col h-[calc(100vh-200px)] min-h-[500px]"> {/* Adjust height as needed */}
+        <div className="flex flex-col h-[calc(100vh-200px)] min-h-[500px]">
           {/* Message List */}
           <div ref={chatContainerRef} className="flex-1 overflow-y-auto space-y-2 p-6 mb-6 rounded-xl bg-card/30 backdrop-blur-sm border border-border/40">
-            {/* --- NEW: Placeholder for Audio/Image Personas --- */}
+            {/* --- Placeholder for Audio/Image Personas --- */}
             {currentConvo?.messages.length === 0 && (persona.type === 'audio' || persona.type === 'image') && (
                 <p className="text-center text-slate-400 py-4 italic">
                   This persona works best with {persona.type}. Use the '+' button to add media or start by typing.
                 </p>
             )}
-            {/* --- End NEW --- */}
 
             {/* Existing Message Mapping Logic */}
             {currentConvo && currentConvo.messages.length > 0 ? (
@@ -1001,7 +970,6 @@ export default function ChatPage() {
                 />
               ))
             ) : (
-               // Only show this default for text personas now
                persona.type === 'text' && (
                  <p className="text-center text-slate-400 py-4">
                   Start a new chat with {persona.name}.

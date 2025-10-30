@@ -1,4 +1,3 @@
-// src/pages/DashboardPage.tsx
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { usePersonas } from "@/hooks/usePersonas";

@@ -1,5 +1,3 @@
-// src/lib/prebuilt-personas.ts
-
 import type { Persona } from "./types";
 
 // We'll give them special IDs so our app can find them
