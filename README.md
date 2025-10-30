@@ -9,7 +9,7 @@ Built for the Google Chrome Built-in AI Challenge 2025.
 
 ### 🔴 **Live Demo Link**
 
-**[https://YOUR_VERCEL_PROJECT_NAME.vercel.app](https://YOUR_VERCEL_PROJECT_NAME.vercel.app)**
+**[https://YOUR_VERCEL_PROJECT_NAME.vercel.app](https://YOUR_VERCEL_PROJECT_NAME.vercel.app)** | **[Link to Demo Video](https://YOUR_VERCEL_PROJECT_NAME.vercel.app)**
 
 > **Note:** This demo will **ONLY** work in a compatible browser (like Chrome Canary) with the required flags enabled. Please see the "How to Test" section below for instructions.
 
@@ -87,6 +87,14 @@ If you want to run this project on your local machine:
 5.  **Access the App:**
     * Open the `http://localhost:5173` URL (or as specified in your terminal) in your **configured Chrome Canary** browser.
 
+6. **Testing the Image Analyst:**
+
+    1.  Create the "Image Analyst" persona (see Prompt Writer demo).
+    2.  Navigate to the "Image Analyst" chat.
+    3.  Click the `+` button and upload the test image located at:
+        `/demo-assets/test-image.jpg`
+    4.  Ask a question, such as: "What is this animal?"
+
 ---
 
 
@@ -103,8 +111,6 @@ If you want to run this project on your local machine:
     * **Speech Coach (Multimodal):** Analyzes your speech using **live audio + video snapshots** to give feedback on tone, clarity, and visual cues (requires a capable system).
 * **In-Chat Media Upload:** Attach images or audio files directly into chats for multimodal queries (works with Image Analyst, etc.).
 * **Rewrite Functionality:** Click the rewrite icon on any AI response (text personas only) to get a revised version based on your instructions (e.g., "make this shorter").
-
-``
 
 ---
 
