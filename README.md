@@ -9,7 +9,7 @@ Built for the Google Chrome Built-in AI Challenge 2025.
 
 ### 🔴 **Live Demo Link**
 
-**[https://swa-ai.vercel.app/](https://swa-ai.vercel.app/)** | **[Link to Demo Video](https://YOUR_VERCEL_PROJECT_NAME.vercel.app)**
+**[https://swa-ai.vercel.app/](https://swa-ai.vercel.app/)** | **[Link to Demo Video](https://youtu.be/AIiLL_amS_I?si=KwW-qfg6Lu0OuKuH)**
 
 > **Note:** This demo will **ONLY** work in a compatible browser (like Chrome Canary) with the required flags enabled. Please see the "How to Test" section below for instructions.
 
