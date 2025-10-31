@@ -9,7 +9,7 @@ Built for the Google Chrome Built-in AI Challenge 2025.
 
 ### 🔴 **Live Demo Link**
 
-**[https://YOUR_VERCEL_PROJECT_NAME.vercel.app](https://YOUR_VERCEL_PROJECT_NAME.vercel.app)** | **[Link to Demo Video](https://YOUR_VERCEL_PROJECT_NAME.vercel.app)**
+**[https://swa-ai.vercel.app/](https://swa-ai.vercel.app/)** | **[Link to Demo Video](https://YOUR_VERCEL_PROJECT_NAME.vercel.app)**
 
 > **Note:** This demo will **ONLY** work in a compatible browser (like Chrome Canary) with the required flags enabled. Please see the "How to Test" section below for instructions.
 
@@ -52,7 +52,7 @@ This project uses experimental Chrome APIs. To run it, you **must** use a compat
     * `chrome://flags/#prompt-api-for-gemini-nano`
     * `chrome://flags/#optimization-guide-on-device-model` (Select "Enabled Bypass...")
     * `chrome://flags/#prompt-api-for-gemini-nano-multimodal-input` (Required for Speech Coach)
-3.  **Visit Demo:** Go to the [Live Demo Link](https://YOUR_VERCEL_PROJECT_NAME.vercel.app) using your configured Chrome Canary.
+3.  **Visit Demo:** Go to the [Live Demo Link](https://swa-ai.vercel.app/) using your configured Chrome Canary.
 4.  **Model Download:** The first time you visit a chat page, the app will show a **"Download Model"** button. This requires a user click. The on-device model will download in the background (progress is visible at `chrome://on-device-internals`).
 5.  **Hardware Requirements:**
     * **Text Features:** Should work on most systems meeting the base requirements (e.g., 8GB RAM).
